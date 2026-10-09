@@ -51,6 +51,7 @@ textarea{min-height:80px;resize:vertical}
 .prog i{display:block;height:100%;background:var(--ok)}
 .act{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .btn.sm{padding:6px 12px;font-size:13.5px}
+.pics{display:flex;flex-wrap:wrap;gap:6px}.pics img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}.pics .ph{position:relative}.pics .ph .x{position:absolute;top:-6px;right:-6px;background:var(--surface);border:1px solid var(--line);border-radius:50%;width:22px;height:22px;line-height:18px;padding:0}.card .pics img{width:48px;height:48px}
 .btn.danger{color:#c62828;border-color:currentColor;background:transparent}
 .modal-bg{position:fixed;inset:0;background:rgb(0 0 0 / .5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
 .modal{background:var(--surface);border-radius:14px;width:100%;max-width:560px;max-height:90vh;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
@@ -74,9 +75,13 @@ try{me=localStorage.getItem('jd-name')}catch(e){}
 const SUPABASE_URL='https://vtuyyzrftuqmbaycbqat.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0dXl5enJmdHVxbWJheWNicWF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTE0MzgsImV4cCI6MjEwNzA4NzQzOH0.eiC9E0NnMEl5b24xaS9-PeTxGY3naUOR3AXWa93xHk0';
 // Row <-> app field names
-const fromRow=r=>({id:r.id,title:r.title,desc:r.desc||'',items:r.items||[],createdBy:r.created_by,createdAt:Date.parse(r.created_at),claimedBy:r.claimed_by,claimedAt:r.claimed_at&&Date.parse(r.claimed_at)});
-const toRow=p=>{const o={};for(const[k,v]of Object.entries(p)){const c={createdBy:'created_by',createdAt:'created_at',claimedBy:'claimed_by',claimedAt:'claimed_at'}[k]||k;o[c]=/At$/.test(k)&&v?new Date(v).toISOString():v}return o};
+const fromRow=r=>({id:r.id,title:r.title,desc:r.desc||'',items:r.items||[],createdBy:r.created_by,createdAt:Date.parse(r.created_at),claimedBy:r.claimed_by,claimedAt:r.claimed_at&&Date.parse(r.claimed_at),photos:r.photos||[],notePhotos:r.note_photos||[]});
+const toRow=p=>{const o={};for(const[k,v]of Object.entries(p)){const c={createdBy:'created_by',createdAt:'created_at',claimedBy:'claimed_by',claimedAt:'claimed_at',notePhotos:'note_photos'}[k]||k;o[c]=/At$/.test(k)&&v?new Date(v).toISOString():v}return o};
 const ok=({error})=>{if(error)throw error};
+function shrink(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(new Error('อ่านรูปไม่ได้')),'image/jpeg',.8)};im.onerror=()=>rej(new Error('อ่านรูปไม่ได้'));im.src=u})}
+async function upload(files){const out=[];for(const f of files){const b=await shrink(f),path=Date.now()+'-'+Math.random().toString(36).slice(2)+'.jpg';ok(await col.storage.from('photos').upload(path,b,{contentType:'image/jpeg'}));out.push(col.storage.from('photos').getPublicUrl(path).data.publicUrl)}return out}
+function picsHTML(urls){return urls.length?`<div class="pics">${urls.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="รูปแนบ" loading="lazy"></a>`).join('')}</div>`:''}
+function draftPicsHTML(key){return draftPics[key].map((f,i)=>`<span class="ph"><img src="${f.url}" alt="รูปที่เลือก"><button type="button" class="x" data-rp="${key}:${i}" aria-label="ลบรูป">×</button></span>`).join('')}
 async function addTask(t){ok(await col.from('tasks').insert(toRow(t)));await load()}
 async function patch(id,p){ok(await col.from('tasks').update(toRow(p)).eq('id',id));await load()}
 async function remove(id){ok(await col.from('tasks').delete().eq('id',id));await load()}
@@ -102,13 +107,15 @@ function render(){const app=$('#app');
     if($('#retry'))$('#retry').onclick=()=>location.reload();return}
   app.innerHTML=`<div class="brand"><span class="mark">JD</span><b>Work Handoff</b><span class="sp"></span><span class="muted" style="font-size:14px">${esc(me)}</span><button class="btn ghost" id="out">ออก</button></div>
   ${adding?`<form class="sheet" id="af"><b>เพิ่มงาน</b><input id="tt" placeholder="หัวข้องาน เช่น ตรวจ Stock รองเท้า Nike" required>
+    <div><label class="btn sm">📷 แนบรูปหัวข้อ<input type="file" accept="image/*" multiple hidden data-pick="t"></label><div class="pics" id="pt" style="margin-top:6px">${draftPicsHTML('t')}</div></div>
     <div><div style="font-size:13px;font-weight:600;margin-bottom:4px">รายละเอียด (ติ๊กข้อที่ทำแล้ว)</div><div id="dl">${checklistHTML(draft,true)}</div>
     <div class="row" style="margin-top:8px"><input id="ni" placeholder="เพิ่มหัวข้อ เช่น ตรวจ Warehouse A"><button type="button" class="btn" id="nadd">เพิ่ม</button></div></div>
     <textarea id="td" placeholder="หมายเหตุ (ไม่บังคับ)" style="min-height:56px"></textarea>
-    <div class="act"><button type="button" class="btn" id="cancel">ยกเลิก</button><button class="btn pri">บันทึกงาน</button></div></form>`
+    <div><label class="btn sm">📷 แนบรูปหมายเหตุ<input type="file" accept="image/*" multiple hidden data-pick="n"></label><div class="pics" id="pn" style="margin-top:6px">${draftPicsHTML('n')}</div></div>
+    <div class="act"><button type="button" class="btn" id="cancel">ยกเลิก</button><button class="btn pri" id="save">บันทึกงาน</button></div></form>`
    :`<button class="btn acc big" id="add">+ เพิ่มงาน</button>`}
   ${tasks.length?`<div class="muted" style="font-size:13px">งานทั้งหมด ${tasks.length} · ยังไม่มีคนรับ ${open}</div><div class="list">${tasks.map(t=>{const n=items(t).length;return `<div class="card"><div class="body">
-     <div class="t">${esc(t.title)}</div>
+     <div class="t">${esc(t.title)}</div>${picsHTML(t.photos)}
      <div class="meta"><span>เพิ่มโดย <b>${esc(t.createdBy)}</b> · ${ago(t.createdAt)}</span>${t.claimedBy?`<span>รับงานโดย <b>${esc(t.claimedBy)}</b></span>`:''}${n?`<span>ทำแล้ว <b>${doneN(t)}/${n}</b></span>`:''}</div>
      ${n?`<div class="prog"><i style="width:${doneN(t)/n*100}%"></i></div>`:''}</div>
      <div class="act"><button class="btn sm" data-open="${esc(t.id)}">ดูรายละเอียด</button>${t.claimedBy?`<span class="pill" style="color:var(--ok);align-self:center">รับงานแล้ว</span>`:`<button class="btn sm pri" data-claim="${esc(t.id)}">รับงาน</button>`}</div></div>`}).join('')}</div>`
@@ -120,10 +127,11 @@ function render(){const app=$('#app');
 function detailHTML(){const t=tasks.find(x=>x.id===openId);if(!t)return'';const n=items(t).length;
   return `<div class="modal-bg" id="mbg"><div class="modal" role="dialog" aria-modal="true">
    <div class="row"><b style="font-size:18px;flex:1;min-width:0;overflow-wrap:anywhere">${esc(t.title)}</b><button class="btn ghost" id="close">ปิด</button></div>
+   ${picsHTML(t.photos)}
    <div class="meta" style="margin-top:0"><span>เพิ่มโดย <b>${esc(t.createdBy)}</b> · ${ago(t.createdAt)}</span><span>${t.claimedBy?`รับงานโดย <b>${esc(t.claimedBy)}</b>`:'ยังไม่มีคนรับงาน'}</span></div>
    ${n?`<div><div class="row"><b style="font-size:14px">รายละเอียด</b><span class="sp"></span><span class="muted" style="font-size:13px">ทำแล้ว ${doneN(t)}/${n}</span></div><div class="prog"><i style="width:${doneN(t)/n*100}%"></i></div><div id="cl">${checklistHTML(items(t),false)}</div></div>`:''}
-   ${t.desc?`<div><b style="font-size:14px">หมายเหตุ</b><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(t.desc)}</div></div>`:''}
-   ${!n&&!t.desc?'<div class="muted">ไม่มีรายละเอียด</div>':''}
+   ${t.desc||t.notePhotos.length?`<div><b style="font-size:14px">หมายเหตุ</b><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(t.desc)}</div>${picsHTML(t.notePhotos)}</div>`:''}
+   ${!n&&!t.desc&&!t.notePhotos.length?'<div class="muted">ไม่มีรายละเอียด</div>':''}
    <div class="row"><input id="mi" placeholder="เพิ่มหัวข้อใหม่"><button class="btn" id="madd">เพิ่ม</button></div>
    ${delId===t.id?`<div class="sheet" style="border-color:#c62828"><b>ลบงาน “${esc(t.title)}”?</b><div class="muted" style="font-size:13px">ลบแล้วกู้คืนไม่ได้ ทุกคนจะไม่เห็นงานนี้อีก</div><div class="act"><button class="btn" id="dno">ไม่ลบ</button><button class="btn danger" id="dyes">ลบงาน</button></div></div>`
     :`<div class="act"><button class="btn danger" id="del">ลบงาน</button>${t.claimedBy?'':`<button class="btn pri" data-claim="${esc(t.id)}">รับงาน</button>`}</div>`}
@@ -136,12 +144,20 @@ function bind(){
     $('#nadd').onclick=push;ni.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();push()}};
     $('#dl').onclick=e=>{const rm=e.target.closest('[data-rm]');if(rm){e.preventDefault();draft.splice(+rm.dataset.rm,1);$('#dl').innerHTML=checklistHTML(draft,true)}};
     $('#dl').onchange=e=>{const i=e.target.dataset.i;if(i==null)return;draft[i].done=e.target.checked;$('#dl').innerHTML=checklistHTML(draft,true)};
-    $('#cancel').onclick=()=>{adding=false;draft=[];render()};
+    const showPics=k=>{$('#p'+k).innerHTML=draftPicsHTML(k)};
+    document.querySelectorAll('[data-pick]').forEach(inp=>inp.onchange=()=>{const k=inp.dataset.pick;for(const f of inp.files)draftPics[k].push({file:f,url:URL.createObjectURL(f)});inp.value='';showPics(k)});
+    $('#af').addEventListener('click',e=>{const b=e.target.closest('[data-rp]');if(!b)return;const[k,i]=b.dataset.rp.split(':');URL.revokeObjectURL(draftPics[k][i].url);draftPics[k].splice(+i,1);showPics(k)});
+    $('#cancel').onclick=()=>{adding=false;draft=[];clearPics();render()};
     $('#af').onsubmit=async e=>{e.preventDefault();const title=$('#tt').value.trim();if(!title)return;const pending=ni.value.trim();if(pending)draft.push({text:pending,done:false});
-      const t={title,items:draft,desc:$('#td').value.trim(),createdBy:me,createdAt:Date.now(),claimedBy:null};adding=false;draft=[];render();
+      const t={title,items:draft,desc:$('#td').value.trim(),createdBy:me,createdAt:Date.now(),claimedBy:null};
+      const save=$('#save');save.disabled=true;
+      if(draftPics.t.length||draftPics.n.length){save.textContent='กำลังอัปโหลดรูป…';
+        try{const a=await upload(draftPics.t.map(x=>x.file)),b=await upload(draftPics.n.map(x=>x.file));if(a.length)t.photos=a;if(b.length)t.notePhotos=b}
+        catch(err){save.disabled=false;save.textContent='บันทึกงาน';alertMsg('อัปโหลดรูปไม่สำเร็จ: '+(err.message||err));return}}
+      adding=false;draft=[];clearPics();render();
       await run(()=>addTask(t),'เพิ่มงานไม่สำเร็จ')};
     $('#tt').focus()}
-  else $('#add').onclick=()=>{adding=true;draft=[];render()};
+  else $('#add').onclick=()=>{adding=true;draft=[];clearPics();render()};
   document.querySelectorAll('[data-claim]').forEach(b=>b.onclick=()=>{b.disabled=true;run(()=>patch(b.dataset.claim,{claimedBy:me,claimedAt:Date.now()}),'รับงานไม่สำเร็จ')});
   document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{openId=b.dataset.open;delId=null;render()});
   const t=tasks.find(x=>x.id===openId);if(!t)return;
@@ -154,6 +170,7 @@ function bind(){
   if($('#dno'))$('#dno').onclick=()=>{delId=null;render()};
   if($('#dyes'))$('#dyes').onclick=()=>{const id=t.id;openId=null;delId=null;render();run(()=>remove(id),'ลบไม่สำเร็จ')};
 }
+let draftPics={t:[],n:[]};function clearPics(){for(const k in draftPics)draftPics[k].forEach(x=>URL.revokeObjectURL(x.url));draftPics={t:[],n:[]}}
 function alertMsg(m){const n=document.createElement('div');n.className='note';n.style.color='var(--wait)';n.textContent=m;$('#app').append(n);setTimeout(()=>n.remove(),4000)}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&openId){openId=null;delId=null;render()}});
 render();
