@@ -86,7 +86,9 @@ function picsHTML(urls){return urls.length?`<div class="pics">${urls.map(u=>`<a 
 function draftPicsHTML(key){return draftPics[key].map((f,i)=>`<span class="ph"><img src="${f.url}" alt="รูปที่เลือก"><button type="button" class="x" data-rp="${key}:${i}" aria-label="ลบรูป">×</button></span>`).join('')}
 async function addTask(t){ok(await col.from('tasks').insert(toRow(t)));await load()}
 async function patch(id,p){ok(await col.from('tasks').update(toRow(p)).eq('id',id));await load()}
-async function remove(id){ok(await col.from('tasks').delete().eq('id',id));await load()}
+async function remove(id){const t=tasks.find(x=>x.id===id);ok(await col.from('tasks').delete().eq('id',id));
+  const pre=SUPABASE_URL+'/storage/v1/object/public/photos/',files=t?[...t.photos,...t.notePhotos].map(u=>u.slice(pre.length)):[];
+  if(files.length)await col.storage.from('photos').remove(files).catch(()=>{});await load()}
 const items=t=>Array.isArray(t.items)?t.items:[];
 const doneN=t=>items(t).filter(i=>i.done).length;
 const ERR={};
