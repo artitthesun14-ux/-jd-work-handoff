@@ -75,7 +75,9 @@ try{me=localStorage.getItem('jd-name')}catch(e){}
 const SUPABASE_URL='https://vtuyyzrftuqmbaycbqat.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0dXl5enJmdHVxbWJheWNicWF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTE0MzgsImV4cCI6MjEwNzA4NzQzOH0.eiC9E0NnMEl5b24xaS9-PeTxGY3naUOR3AXWa93xHk0';
 // Row <-> app field names
-const fromRow=r=>({id:r.id,title:r.title,desc:r.desc||'',items:r.items||[],createdBy:r.created_by,createdAt:Date.parse(r.created_at),claimedBy:r.claimed_by,claimedAt:r.claimed_at&&Date.parse(r.claimed_at),photos:r.photos||[],notePhotos:r.note_photos||[]});
+const fromRow=r=>({id:r.id,title:r.title,desc:r.desc||'',items:arr(r.items).filter(x=>x&&typeof x==='object'),createdBy:r.created_by,createdAt:Date.parse(r.created_at),claimedBy:r.claimed_by,claimedAt:r.claimed_at&&Date.parse(r.claimed_at),photos:pics(r.photos),notePhotos:pics(r.note_photos)});
+function arr(v){return Array.isArray(v)?v:[]}
+function pics(v){return arr(v).filter(u=>typeof u==='string'&&u.startsWith(SUPABASE_URL+'/storage/v1/object/public/photos/'))}
 const toRow=p=>{const o={};for(const[k,v]of Object.entries(p)){const c={createdBy:'created_by',createdAt:'created_at',claimedBy:'claimed_by',claimedAt:'claimed_at',notePhotos:'note_photos'}[k]||k;o[c]=/At$/.test(k)&&v?new Date(v).toISOString():v}return o};
 const ok=({error})=>{if(error)throw error};
 function shrink(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(new Error('อ่านรูปไม่ได้')),'image/jpeg',.8)};im.onerror=()=>rej(new Error('อ่านรูปไม่ได้'));im.src=u})}
