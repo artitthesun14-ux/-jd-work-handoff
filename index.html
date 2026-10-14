@@ -63,10 +63,27 @@ button:disabled{opacity:.55;cursor:default}
 .act{display:flex;gap:8px;flex-wrap:wrap}
 .act .btn{flex:1}
 .pics{display:flex;flex-wrap:wrap;gap:6px}
-.pics a,.pics .ph{position:relative;display:block}
+.pics .ph{position:relative;display:block}
 .pics img{width:76px;height:76px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}
-.card .pics img{width:44px;height:44px}
-.more{width:44px;height:44px;border-radius:8px;background:var(--raise);display:grid;place-items:center;font-size:13px;color:var(--muted)}
+.gal{display:grid;gap:3px;border-radius:10px;overflow:hidden;grid-template-columns:repeat(var(--c),1fr)}
+.gal button{position:relative;padding:0;border:0;background:var(--raise);display:block;aspect-ratio:1;overflow:hidden}
+.gal.n1 button{aspect-ratio:4/3;max-height:300px;width:100%}
+.gal img{width:100%;height:100%;object-fit:cover;display:block}
+.gal .plus{position:absolute;inset:0;background:rgb(0 0 0 / .55);display:grid;place-items:center;font-size:22px;font-weight:700;color:#fff}
+/* Full-screen photo viewer, LINE style: black stage, counter, swipe between photos. */
+.lb{position:fixed;inset:0;background:#000;z-index:100;display:flex;flex-direction:column;animation:fade .15s ease-out}
+@keyframes fade{from{opacity:0}}
+.lbbar{display:flex;align-items:center;gap:8px;padding:max(10px,env(safe-area-inset-top)) 10px 10px;color:#fff}
+.lbbar .btn{background:transparent;border-color:transparent;color:#fff;min-width:44px}
+.lbbar .cnt{flex:1;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
+.lbstage{flex:1;position:relative;overflow:hidden;touch-action:pan-y pinch-zoom;display:flex;align-items:center;justify-content:center}
+.lbstage img{max-width:100%;max-height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;transition:transform .2s ease-out}
+.lbstage img.drag{transition:none}
+.lbnav{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:64px;border:0;border-radius:10px;background:rgb(255 255 255 / .12);color:#fff;font-size:26px}
+.lbnav.prev{left:8px}.lbnav.next{right:8px}
+.lbdots{display:flex;justify-content:center;gap:6px;padding:12px 0 max(16px,env(safe-area-inset-bottom))}
+.lbdots i{width:7px;height:7px;border-radius:50%;background:rgb(255 255 255 / .35)}.lbdots i.on{background:#fff}
+@media (hover:none){.lbnav{display:none}}
 .ph .x{position:absolute;top:-8px;right:-8px;background:var(--raise);border:1px solid var(--line);border-radius:50%;width:26px;height:26px;padding:0;line-height:1}
 .empty{border:1px dashed var(--line);border-radius:var(--r);padding:36px 16px;text-align:center;color:var(--muted)}
 .note{font-size:12.5px;color:var(--muted)}
@@ -192,9 +209,11 @@ const FILTERS={all:['ทั้งหมด',()=>true],open:['ยังไม่�
 function tagsHTML(t){const s=status(t),d=dueInfo(t);
   return `<div class="tags"><span class="tag t-${t.priority}">${PRI[t.priority]}</span><span class="tag s-${s}">${ST[s]}</span>${d?`<span class="tag ${d.cls}">${esc(d.txt)}</span>`:''}</div>`}
 function progHTML(t){const n=items(t).length;if(!n)return'';return `<div class="prog"><div class="bar"><i style="width:${doneN(t)/n*100}%"></i></div><span>${doneN(t)}/${n} ข้อ</span></div>`}
-function thumbs(t){const all=[...t.photos,...t.notePhotos];if(!all.length)return'';const show=all.slice(0,3);
-  return `<div class="pics">${show.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="รูปแนบ" loading="lazy"></a>`).join('')}${all.length>3?`<span class="more">+${all.length-3}</span>`:''}</div>`}
-function picsHTML(urls){return urls.length?`<div class="pics">${urls.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="รูปแนบ แตะเพื่อดูขนาดเต็ม" loading="lazy"></a>`).join('')}</div>`:''}
+/* Photo grid: one photo shows wide, two side by side, more in a 3-up grid with a +N tile. */
+const allPics=t=>[...t.photos,...t.notePhotos];
+function galHTML(t,urls,offset,max){if(!urls.length)return'';const show=urls.slice(0,max),extra=urls.length-show.length,c=show.length===1?1:show.length===2?2:3;
+  return `<div class="gal n${show.length}" style="--c:${c}">${show.map((u,i)=>`<button type="button" data-lb="${esc(t.id)}:${offset+i}" aria-label="ดูรูปที่ ${offset+i+1} แบบเต็มจอ"><img src="${esc(u)}" alt="" loading="lazy">${extra&&i===show.length-1?`<span class="plus">+${extra}</span>`:''}</button>`).join('')}</div>`}
+const thumbs=t=>galHTML(t,allPics(t),0,3);
 function draftPicsHTML(k){return draftPics[k].map((f,i)=>`<span class="ph"><img src="${f.url}" alt="รูปที่เลือก"><button type="button" class="x" data-rp="${k}:${i}" aria-label="ลบรูปนี้">×</button></span>`).join('')}
 function checklistHTML(list,editable){return list.map((it,i)=>`<label class="chk ${it.done?'done':''}"><input type="checkbox" data-i="${i}" ${it.done?'checked':''}><span>${esc(it.text)}</span>${editable?`<button type="button" class="x" data-rm="${i}" aria-label="ลบหัวข้อนี้">×</button>`:''}</label>`).join('')}
 
@@ -264,7 +283,7 @@ function detailHTML(){const t=tasks.find(x=>x.id===openId);if(!t)return'';const 
     <div class="sec"><h3>สิ่งที่ยังต้องทำ${n?` · ทำแล้ว ${doneN(t)}/${n}`:''}</h3>${n?progHTML(t):''}<div class="cl">${todo.length?ck(todo):`<div class="note">${n?'ครบทุกข้อแล้ว':'ยังไม่มีรายการ'}</div>`}</div>
      <div class="row" style="margin-top:8px"><input id="mi" placeholder="เพิ่มสิ่งที่ต้องทำ"><button class="btn" id="madd">เพิ่ม</button></div></div>
     ${did.length?`<div class="sec"><h3>สิ่งที่ทำไปแล้ว</h3><div class="cl">${ck(did)}</div></div>`:''}
-    ${t.desc||t.notePhotos.length||t.photos.length?`<div class="sec"><h3>รายละเอียดและรูปแนบ</h3>${picsHTML(t.photos)}${t.desc?`<div class="txt" style="margin-top:8px">${esc(t.desc)}</div>`:''}${t.notePhotos.length?`<div style="margin-top:8px">${picsHTML(t.notePhotos)}</div>`:''}</div>`:''}
+    ${t.desc||t.notePhotos.length||t.photos.length?`<div class="sec"><h3>รายละเอียดและรูปแนบ</h3>${galHTML(t,t.photos,0,99)}${t.desc?`<div class="txt" style="margin-top:8px">${esc(t.desc)}</div>`:''}${t.notePhotos.length?`<div style="margin-top:8px">${galHTML(t,t.notePhotos,t.photos.length,99)}</div>`:''}</div>`:''}
     ${canEdit?`<div class="sec"><h3>จัดการงาน</h3><div style="display:flex;flex-direction:column;gap:10px">
       <label class="f">เปลี่ยนกำหนดส่ง<div class="row"><input type="date" id="edue" value="${esc(t.due||'')}"><button class="btn" id="savedue">บันทึก</button></div></label>
       <label class="f">ส่งต่อให้คนอื่น<div class="row"><input id="eas" placeholder="ชื่อผู้รับคนใหม่" autocomplete="off"><button class="btn" id="saveas">ส่งต่อ</button></div></label></div></div>`:''}
@@ -326,6 +345,25 @@ function bindDetail(){const t=tasks.find(x=>x.id===openId);if(!t)return;
   if($('#dyes'))$('#dyes').onclick=()=>{const id=t.id;openId=null;delId=null;refreshDetail();run(()=>remove(id),'ลบไม่สำเร็จ','ลบงานแล้ว')};
 }
 function clearPics(){for(const k in draftPics)draftPics[k].forEach(x=>URL.revokeObjectURL(x.url));draftPics={t:[],n:[]}}
+/* Viewer lives outside #app so syncs and re-renders never close it. */
+let lb=null;
+function openLB(urls,i){lb={urls,i};const el=document.createElement('div');el.className='lb';el.id='lb';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label','ดูรูป');
+  el.innerHTML=`<div class="lbbar"><button class="btn" id="lbx" aria-label="ปิด">✕</button><span class="cnt" id="lbc"></span><a class="btn" id="lbo" target="_blank" rel="noopener" aria-label="เปิดรูปขนาดจริง">เปิดรูปจริง</a></div>
+   <div class="lbstage" id="lbs"><img id="lbi" alt=""><button class="lbnav prev" id="lbp" aria-label="รูปก่อนหน้า">‹</button><button class="lbnav next" id="lbn" aria-label="รูปถัดไป">›</button></div><div class="lbdots" id="lbd"></div>`;
+  document.body.append(el);document.body.style.overflow='hidden';
+  $('#lbx').onclick=closeLB;$('#lbp').onclick=()=>stepLB(-1);$('#lbn').onclick=()=>stepLB(1);
+  const st=$('#lbs'),img=$('#lbi');let x0=null,y0=0,dx=0;
+  st.addEventListener('touchstart',e=>{if(e.touches.length!==1){x0=null;return}x0=e.touches[0].clientX;y0=e.touches[0].clientY;dx=0;img.classList.add('drag')},{passive:true});
+  st.addEventListener('touchmove',e=>{if(x0==null||e.touches.length!==1)return;dx=e.touches[0].clientX-x0;if(Math.abs(dx)>Math.abs(e.touches[0].clientY-y0))img.style.transform=`translateX(${dx}px)`},{passive:true});
+  st.addEventListener('touchend',()=>{if(x0==null)return;img.classList.remove('drag');img.style.transform='';x0=null;
+    if(dx<-50)stepLB(1);else if(dx>50)stepLB(-1)});
+  showLB();$('#lbx').focus()}
+function showLB(){const{urls,i}=lb,n=urls.length;$('#lbi').src=urls[i];$('#lbo').href=urls[i];$('#lbc').textContent=n>1?`${i+1} / ${n}`:'';
+  $('#lbp').hidden=i===0;$('#lbn').hidden=i===n-1;$('#lbd').innerHTML=n>1?urls.map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join(''):''}
+function stepLB(d){const j=lb.i+d;if(j<0||j>=lb.urls.length)return;lb.i=j;showLB()}
+function closeLB(){lb=null;$('#lb')?.remove();document.body.style.overflow=''}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-lb]');if(!b)return;const[id,i]=b.dataset.lb.split(':');const t=tasks.find(x=>x.id===id);if(t)openLB(allPics(t),+i)});
+document.addEventListener('keydown',e=>{if(!lb)return;if(e.key==='Escape'){e.stopImmediatePropagation();closeLB()}else if(e.key==='ArrowLeft')stepLB(-1);else if(e.key==='ArrowRight')stepLB(1)},true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&openId){openId=null;delId=null;refreshDetail()}});
 window.addEventListener('beforeunload',e=>{if(formDirty()){e.preventDefault();e.returnValue=''}});
 render();
