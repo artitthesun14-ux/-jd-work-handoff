@@ -1,5 +1,5 @@
 <!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>JD Work Handoff</title>
+<title>Handoff</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800&display=swap">
 <style>
 body{margin:0}
@@ -98,18 +98,18 @@ function checklistHTML(list,editable){return list.map((it,i)=>`<label class="chk
 
 function render(){const app=$('#app');
   if(!me){app.innerHTML=`<div class="center">
-    <div class="brand"><span class="mark">JD</span><b>Work Handoff</b></div>
+    <div class="brand"><span class="mark">H</span><b>Handoff</b></div>
     <h1>เข้าสู่ระบบ</h1><div class="muted">ใส่ชื่อของคุณเพื่อเริ่มใช้งาน</div>
     <form id="lf" style="display:flex;flex-direction:column;gap:10px"><input id="name" placeholder="ชื่อของคุณ" autocomplete="name" required><button class="btn pri big">เข้าสู่ระบบ</button></form></div>`;
     $('#lf').onsubmit=e=>{e.preventDefault();const v=$('#name').value.trim();if(!v)return;me=v;try{localStorage.setItem('jd-name',v)}catch(e){}render()};$('#name').focus();return}
   const open=tasks.filter(t=>!t.claimedBy).length;
-  if(conn!=='ok'){app.innerHTML=`<div class="brand"><span class="mark">JD</span><b>Work Handoff</b><span class="sp"></span><span class="muted" style="font-size:14px">${esc(me)}</span><button class="btn ghost" id="out">ออก</button></div>
+  if(conn!=='ok'){app.innerHTML=`<div class="brand"><span class="mark">H</span><b>Handoff</b><span class="sp"></span><span class="muted" style="font-size:14px">${esc(me)}</span><button class="btn ghost" id="out">ออก</button></div>
     ${conn==='connecting'?`<div class="empty">กำลังโหลดงาน…</div>`:`<div class="sheet" style="border-color:var(--wait)"><b>เชื่อมต่อฐานข้อมูลงานไม่ได้</b>
     <div style="font-size:14px">ตรวจสอบสัญญาณอินเทอร์เน็ต แล้วกดลองใหม่</div>
     <div><button class="btn" id="retry">ลองใหม่</button></div></div>`}`;
     $('#out').onclick=()=>{me=null;try{localStorage.removeItem('jd-name')}catch(e){}render()};
     if($('#retry'))$('#retry').onclick=()=>location.reload();return}
-  app.innerHTML=`<div class="brand"><span class="mark">JD</span><b>Work Handoff</b><span class="sp"></span><span class="muted" style="font-size:14px">${esc(me)}</span><button class="btn ghost" id="out">ออก</button></div>
+  app.innerHTML=`<div class="brand"><span class="mark">H</span><b>Handoff</b><span class="sp"></span><span class="muted" style="font-size:14px">${esc(me)}</span><button class="btn ghost" id="out">ออก</button></div>
   ${adding?`<form class="sheet" id="af"><b>เพิ่มงาน</b><input id="tt" placeholder="หัวข้องาน เช่น ตรวจ Stock รองเท้า Nike" required>
     <div><label class="btn sm">📷 แนบรูปหัวข้อ<input type="file" accept="image/*" multiple hidden data-pick="t"></label><div class="pics" id="pt" style="margin-top:6px">${draftPicsHTML('t')}</div></div>
     <div><div style="font-size:13px;font-weight:600;margin-bottom:4px">รายละเอียด (ติ๊กข้อที่ทำแล้ว)</div><div id="dl">${checklistHTML(draft,true)}</div>
