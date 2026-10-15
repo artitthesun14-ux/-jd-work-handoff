@@ -136,9 +136,52 @@ h1{margin:0;font-family:var(--f-display);font-weight:800;font-size:40px;line-hei
 @media (max-width:520px){.modal-bg{align-items:flex-end;padding:0}.modal{border-radius:16px 16px 0 0;max-height:92dvh}}
 @media (min-width:700px){.wrap{padding-top:28px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* Workspace + project context */
+.ctx{display:flex;flex-direction:column;gap:8px}
+.wsbtn{display:flex;align-items:center;gap:10px;width:100%;min-height:54px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:8px 14px;text-align:left}
+.wsbtn span.t{flex:1;min-width:0}
+.k{display:block;font-size:11.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.wsbtn b{display:block;font-size:16.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.car{color:var(--muted);font-size:13px}
+.projsel{display:flex;flex-direction:column;gap:4px}
+.projsel select{min-height:48px}
+select{appearance:auto}
+.crumb{font-size:13.5px;color:var(--muted);overflow-wrap:anywhere}
+.crumb b{color:var(--fg);font-weight:600}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;border:1px dashed var(--line);border-radius:var(--r);padding:10px 14px;font-size:14px;color:var(--muted)}
+.banner b{color:var(--fg)}
+.pdot{display:inline-block;flex:none;width:9px;height:9px;border-radius:50%;background:var(--c,var(--line))}
+.ptag{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sum{grid-template-columns:repeat(4,1fr)}
+.tile span{display:block;line-height:1.25}
+.tile.o b{color:var(--urgent)}
+.srch{display:flex;gap:8px}
+.srch input{flex:1;min-width:0;min-height:44px;padding:10px 14px}
+.cnt{background:var(--y);color:var(--on-y);border-radius:99px;padding:0 7px;font-size:12px;line-height:18px}
+.active-f{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13.5px;color:var(--muted)}
+/* Sheets */
+.stack{display:flex;flex-direction:column;gap:10px}
+.wsitem{display:flex;flex-direction:column;gap:2px;text-align:left;width:100%;min-height:52px;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--raise)}
+.wsitem.on{border-color:var(--y)}
+.wsitem small,.mrow small{color:var(--muted)}
+.mrow{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--raise)}
+.mrow .nm{flex:1;min-width:0;overflow-wrap:anywhere}
+.mrow select{width:auto;min-height:38px;padding:6px 10px;font-size:14px}
+.code{font-family:var(--f-display);font-size:30px;font-weight:800;letter-spacing:.12em;overflow-wrap:anywhere}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opts button{min-width:44px;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--raise);font-size:18px;display:grid;place-items:center}
+.opts button[aria-pressed="true"]{border-color:var(--y);box-shadow:0 0 0 1px var(--y)}
+.opts .sw{width:22px;height:22px;border-radius:50%;background:var(--c)}
+.prow{display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--line);border-left:4px solid var(--c);border-radius:10px;background:var(--raise)}
+.prow .nm{font-weight:600;overflow-wrap:anywhere}
+.hx{margin-top:6px;padding:8px 10px;background:var(--raise);border-radius:8px;display:flex;flex-direction:column;gap:6px}
+.hx small{color:var(--muted);font-weight:600}
+.lastho{border:1px solid color-mix(in srgb,var(--y) 55%,transparent);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.lastho .hx{margin:0;background:transparent;padding:0}
 </style>
 </head><body>
 <div class="wrap" id="app"></div>
+<div id="sheet"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -150,62 +193,150 @@ const when=ts=>new Date(ts).toLocaleString('th-TH',{day:'numeric',month:'short',
 /* Dates are compared as calendar days in Thailand time. */
 const ymdBKK=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok'}).format(d);
 const dayN=s=>Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10))/864e5;
-function dueInfo(t){if(!t.due)return null;const diff=dayN(t.due)-dayN(ymdBKK(new Date()));
+const today=()=>dayN(ymdBKK(new Date()));
+const addDays=n=>new Date((today()+n)*864e5).toISOString().slice(0,10);
+function dueInfo(t){if(!t.due)return null;const diff=dayN(t.due)-today();
   const nice=new Date(t.due+'T00:00:00+07:00').toLocaleDateString('th-TH',{day:'numeric',month:'short',timeZone:'Asia/Bangkok'});
   if(diff<0&&status(t)!=='done')return{cls:'t-over',txt:'เกินกำหนด · '+nice,over:true};
   return{cls:'nodot',txt:'กำหนดส่ง '+(diff===0?'วันนี้':diff===1?'พรุ่งนี้':nice),over:false}}
 
 const PRI={urgent:'เร่งด่วน',normal:'ปกติ',low:'ไม่เร่งด่วน'};
 const ST={open:'ยังไม่มีคนรับ',claimed:'รับงานแล้ว',doing:'กำลังทำ',done:'เสร็จแล้ว'};
-/* Status: rows from before statuses existed have none, so derive it from the assignee. */
-const status=t=>!t.claimedBy?'open':(t.status||'claimed');
+const ROLE={owner:'Owner',admin:'Admin',member:'Member'};
+const ROLE_TXT={owner:'จัดการ Workspace และสมาชิก',admin:'จัดการโปรเจกต์ งาน และ Template',member:'สร้าง รับ และอัปเดตงาน'};
+const COLORS={yellow:'#FFD400',blue:'#5B9DFF',green:'#38C779',red:'#F04444',purple:'#A78BFA',orange:'#F5A623',gray:'#A3A3A3'};
+const ICONS=['📁','🛒','📦','🧾','🏪','🚚','🛠️','📣','💡','⭐'];
+const status=t=>!t.assigneeId?'open':(t.status||'claimed');
 
-let me=null,tasks=[],events={},adding=false,col=null,conn='connecting',draft=[],openId=null,delId=null,filter='all',fp='normal',saving=false,formErr='';
-let draftPics={t:[],n:[]};
-try{me=localStorage.getItem('jd-name')}catch(e){}
+const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
+const NOF={status:'',priority:'',assignee:'',due:''};
 
-/* All tasks live in the shared Supabase database; nothing is kept only in one browser. */
+/* Every device signs in as a real (anonymous) Supabase user. Workspaces, roles and
+   permissions are enforced by the database, not by which buttons are shown. */
+let col=null,conn='connecting',uid=null,myName=LS.get('jd-name'),authMsg='';
+let wss=[],curWs=null,wsLoaded=false,members=[],projects=[],templates=[],invite=null,tasks=[],events={};
+let projSel='all',filter='all',q='',adv={...NOF};
+let adding=false,draft=[],fp='normal',saving=false,formErr='',draftPics={t:[],n:[]};
+let openId=null,delId=null,sheet=null,chan=null;
+let joinCode=new URLSearchParams(location.search).get('join')||'';
+
 const SUPABASE_URL='https://vtuyyzrftuqmbaycbqat.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0dXl5enJmdHVxbWJheWNicWF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTE0MzgsImV4cCI6MjEwNzA4NzQzOH0.eiC9E0NnMEl5b24xaS9-PeTxGY3naUOR3AXWa93xHk0';
 const PHOTO_PRE=SUPABASE_URL+'/storage/v1/object/public/photos/';
 function arr(v){return Array.isArray(v)?v:[]}
-function pics(v){return arr(v).filter(u=>typeof u==='string'&&u.startsWith(PHOTO_PRE))}
-const fromRow=r=>({id:r.id,title:r.title,desc:r.desc||'',items:arr(r.items).filter(x=>x&&typeof x==='object'),createdBy:r.created_by,createdAt:Date.parse(r.created_at),
-  claimedBy:r.claimed_by,claimedAt:r.claimed_at&&Date.parse(r.claimed_at),photos:pics(r.photos),notePhotos:pics(r.note_photos),
+/* Only render photo URLs from this workspace's folder in our own bucket. */
+function pics(v,ws){const pre=PHOTO_PRE+ws+'/';return arr(v).filter(u=>typeof u==='string'&&u.startsWith(pre)&&!u.includes('..'))}
+const fromRow=r=>({id:r.id,workspaceId:r.workspace_id,projectId:r.project_id||null,title:r.title,desc:r.desc||'',items:arr(r.items).filter(x=>x&&typeof x==='object'),
+  createdBy:r.created_by,createdById:r.created_by_id,createdAt:Date.parse(r.created_at),claimedBy:r.claimed_by,assigneeId:r.assignee_id||null,
+  photos:pics(r.photos,r.workspace_id),notePhotos:pics(r.note_photos,r.workspace_id),
   priority:PRI[r.priority]?r.priority:'normal',due:typeof r.due_date==='string'?r.due_date:null,status:ST[r.status]?r.status:null,handoff:r.handoff_note||''});
-const COLS={createdBy:'created_by',createdAt:'created_at',claimedBy:'claimed_by',claimedAt:'claimed_at',notePhotos:'note_photos',due:'due_date',handoff:'handoff_note'};
-const toRow=p=>{const o={};for(const[k,v]of Object.entries(p)){o[COLS[k]||k]=/At$/.test(k)&&v?new Date(v).toISOString():v}return o};
 const ok=({error})=>{if(error)throw error};
 const items=t=>t.items;
 const doneN=t=>items(t).filter(i=>i.done).length;
 
-function shrink(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(new Error('อ่านรูปไม่ได้')),'image/jpeg',.8)};im.onerror=()=>rej(new Error('อ่านรูปไม่ได้'));im.src=u})}
-async function upload(files){const out=[];for(const f of files){const b=await shrink(f),path=Date.now()+'-'+Math.random().toString(36).slice(2)+'.jpg';ok(await col.storage.from('photos').upload(path,b,{contentType:'image/jpeg'}));out.push(col.storage.from('photos').getPublicUrl(path).data.publicUrl)}return out}
+const ws=()=>wss.find(w=>w.id===curWs);
+const isAdmin=()=>['owner','admin'].includes(ws()?.role);
+const isOwner=()=>ws()?.role==='owner';
+const meName=()=>members.find(m=>m.user_id===uid)?.name||ws()?.myName||myName;
+const projOf=id=>projects.find(p=>p.id===id);
+const activeProjects=()=>projects.filter(p=>!p.archived_at);
+const archivedProjects=()=>projects.filter(p=>p.archived_at);
+const pcolor=p=>COLORS[p?.color]||'var(--line)';
+const ptagHTML=p=>p?`<span class="ptag" style="--c:${pcolor(p)}"><span class="pdot"></span>${esc(p.icon)} ${esc(p.name)}</span>`:'';
 
-/* History rows are written right after the change they describe succeeds. */
-async function logEv(id,action,detail=''){try{await col.from('task_events').insert({task_id:id,actor:me,action,detail})}catch(e){}}
-async function addTask(t){const{data,error}=await col.from('tasks').insert(toRow(t)).select('id').single();if(error)throw error;
-  await logEv(data.id,'สร้างงาน');if(t.claimedBy)await logEv(data.id,'มอบหมายงาน','ให้ '+t.claimedBy);await load()}
-async function patch(id,p,ev){ok(await col.from('tasks').update(toRow(p)).eq('id',id));if(ev)await logEv(id,...ev);await load()}
+function shrink(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(new Error('อ่านรูปไม่ได้')),'image/jpeg',.8)};im.onerror=()=>rej(new Error('อ่านรูปไม่ได้'));im.src=u})}
+async function upload(files,wsId){const out=[];for(const f of files){const b=await shrink(f),path=wsId+'/'+Date.now()+'-'+Math.random().toString(36).slice(2)+'.jpg';ok(await col.storage.from('photos').upload(path,b,{contentType:'image/jpeg'}));out.push(col.storage.from('photos').getPublicUrl(path).data.publicUrl)}return out}
+
+/* Task writes. History rows are written by the database in the same transaction. */
+async function addTask(row){ok(await col.from('tasks').insert(row));await loadTasks()}
+async function patch(id,p){ok(await col.from('tasks').update(p).eq('id',id));await loadTasks();if(openId===id)loadEvents(id)}
 /* Claim only if nobody holds the task yet, so two people tapping at once cannot both get it. */
-async function claim(id){const{data,error}=await col.from('tasks').update(toRow({claimedBy:me,claimedAt:Date.now(),status:'claimed'})).eq('id',id).is('claimed_by',null).select('id');
-  if(error)throw error;if(!data.length){await load();throw new Error('มีคนรับงานนี้ไปก่อนแล้ว')}
-  await logEv(id,'รับงาน');await load()}
+async function claim(id){const{data,error}=await col.from('tasks').update({assignee_id:uid}).eq('id',id).is('assignee_id',null).select('id');
+  if(error)throw error;if(!data.length){await loadTasks();throw new Error('มีคนรับงานนี้ไปก่อนแล้ว')}
+  await loadTasks();if(openId===id)loadEvents(id)}
+async function handoff(id,to,reason,done,next){ok(await col.rpc('handoff_task',{p_task:id,p_to:to,p_reason:reason,p_done:done,p_next:next}));await loadTasks();loadEvents(id)}
 async function remove(id){const t=tasks.find(x=>x.id===id);ok(await col.from('tasks').delete().eq('id',id));
   const files=t?[...t.photos,...t.notePhotos].map(u=>u.slice(PHOTO_PRE.length)):[];
-  if(files.length)await col.storage.from('photos').remove(files).catch(()=>{});await load()}
+  if(files.length)await col.storage.from('photos').remove(files).catch(()=>{});await loadTasks()}
 async function loadEvents(id){const{data,error}=await col.from('task_events').select('*').eq('task_id',id).order('created_at',{ascending:true});
   if(!error){events[id]=data;if(openId===id)refreshDetail()}}
 
 function toast(m,bad){$$('.toast').forEach(n=>n.remove());const n=document.createElement('div');n.className='toast'+(bad?' bad':'');n.setAttribute('role','status');n.textContent=m;document.body.append(n);setTimeout(()=>n.remove(),3500)}
-const run=async(f,msg,okMsg)=>{if(!col){toast('ยังเชื่อมต่อฐานข้อมูลไม่ได้ ข้อมูลยังไม่ถูกบันทึก',true);return false}
-  try{await f();if(okMsg)toast(okMsg);return true}catch(err){toast(msg+': '+(err.message||err.code||err),true);render();return false}};
+const errText=err=>err?.message||err?.code||String(err);
+const run=async(f,msg,okMsg)=>{if(!col||conn!=='ok'){toast('ยังเชื่อมต่อฐานข้อมูลไม่ได้ ข้อมูลยังไม่ถูกบันทึก',true);return false}
+  try{await f();if(okMsg)toast(okMsg);return true}catch(err){toast(msg+': '+errText(err),true);render();renderSheet();return false}};
 
-/* Ordering: unfinished first, then urgent, overdue/soonest due, newest. */
+/* ---------- Loading ---------- */
+async function loadWorkspaces(){const{data,error}=await col.from('workspace_members').select('role,name,workspaces(id,name,description)').eq('user_id',uid);
+  if(error)throw error;
+  wss=data.filter(r=>r.workspaces).map(r=>({id:r.workspaces.id,name:r.workspaces.name,description:r.workspaces.description||'',role:r.role,myName:r.name}))
+    .sort((a,b)=>a.name.localeCompare(b.name,'th'))}
+
+async function selectWs(id){curWs=id;LS.set('ho-ws',id);wsLoaded=false;members=[];projects=[];templates=[];invite=null;tasks=[];events={};
+  projSel=LS.get('ho-proj:'+id)||'all';filter='all';q='';adv={...NOF};adding=false;draft=[];clearPics();openId=null;delId=null;
+  render();await loadWs();subscribe()}
+
+async function loadWs(){const id=curWs;if(!id)return;
+  const r=await Promise.all([col.from('workspaces').select('id,name,description').eq('id',id).maybeSingle(),
+    col.from('workspace_members').select('user_id,name,role,joined_at').eq('workspace_id',id).order('joined_at'),
+    col.from('projects').select('*').eq('workspace_id',id).order('created_at'),
+    col.from('templates').select('*').eq('workspace_id',id).order('created_at'),
+    col.from('tasks').select('*').eq('workspace_id',id).order('created_at',{ascending:false})]);
+  if(id!==curWs)return;
+  const bad=r.find(x=>x.error);if(bad)throw bad.error;
+  const me=r[1].data.find(m=>m.user_id===uid);
+  if(!r[0].data||!me){await lostAccess();return}
+  Object.assign(ws(),{name:r[0].data.name,description:r[0].data.description||'',role:me.role,myName:me.name});
+  members=r[1].data;projects=r[2].data;templates=r[3].data;tasks=r[4].data.map(fromRow);
+  invite=null;if(isAdmin()){const{data}=await col.from('workspace_invites').select('code').eq('workspace_id',id).maybeSingle();if(id!==curWs)return;invite=data?.code||null}
+  if(projSel!=='all'&&projSel!=='none'&&!projOf(projSel))projSel='all';
+  if(openId&&!tasks.some(x=>x.id===openId))openId=null;
+  const first=!wsLoaded;wsLoaded=true;afterData(first);if(openId)loadEvents(openId)}
+
+async function loadTasks(){const id=curWs;if(!id)return;const{data,error}=await col.from('tasks').select('*').eq('workspace_id',id).order('created_at',{ascending:false});
+  if(error||id!==curWs)return;tasks=data.map(fromRow);if(openId&&!tasks.some(x=>x.id===openId))openId=null;afterData()}
+
+/* The member row is gone (removed, or the workspace was deleted): never keep showing its data. */
+async function lostAccess(){toast('คุณไม่มีสิทธิ์เข้าถึง Workspace นี้แล้ว',true);if(chan){col.removeChannel(chan);chan=null}
+  curWs=null;LS.set('ho-ws',null);wsLoaded=false;tasks=[];members=[];projects=[];templates=[];sheet=null;renderSheet();
+  await loadWorkspaces();if(wss.length)await selectWs(wss[0].id);else render()}
+
+/* Don't redraw while someone is typing, so their input is never wiped by a sync. */
+const typingIn=sel=>{const a=document.activeElement;return a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!!a.closest(sel)};
+function afterData(force){if(!force&&(adding||typingIn('#mbg')))return;
+  if(!force&&document.activeElement?.id==='q'){paint();return}
+  render();if(sheet&&!typingIn('#sheet'))renderSheet()}
+
+function subscribe(){if(chan)col.removeChannel(chan);const id=curWs;
+  chan=col.channel('ws-'+id)
+    .on('postgres_changes',{event:'*',schema:'public',table:'tasks',filter:'workspace_id=eq.'+id},()=>loadTasks())
+    .on('postgres_changes',{event:'*',schema:'public',table:'projects',filter:'workspace_id=eq.'+id},()=>refresh())
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'task_events',filter:'workspace_id=eq.'+id},p=>{if(p.new&&p.new.task_id===openId)loadEvents(openId)})
+    .subscribe()}
+const refresh=()=>{if(conn==='ok'&&curWs)loadWs().catch(()=>{})};
+
+/* ---------- Filters ---------- */
+const isOver=t=>!!dueInfo(t)?.over;
+const FILTERS={all:['ทั้งหมด',()=>true],open:['ยังไม่มีคนรับ',t=>status(t)==='open'],mine:['งานของฉัน',t=>t.assigneeId===uid&&status(t)!=='done'],
+  urgent:['เร่งด่วน',t=>t.priority==='urgent'&&status(t)!=='done'],overdue:['เกินกำหนด',isOver],done:['เสร็จแล้ว',t=>status(t)==='done']};
+/* "All projects" hides tasks of archived projects; pick the archived project to see them. */
+function inScope(t){if(projSel==='all')return!t.projectId||!projOf(t.projectId)?.archived_at;if(projSel==='none')return!t.projectId;return t.projectId===projSel}
+function advOk(t){const s=status(t);
+  if(adv.status&&s!==adv.status)return false;
+  if(adv.priority&&t.priority!==adv.priority)return false;
+  if(adv.assignee&&(adv.assignee==='none'?!!t.assigneeId:t.assigneeId!==adv.assignee))return false;
+  if(adv.due){const d=t.due?dayN(t.due)-today():null;
+    if(adv.due==='none'&&t.due)return false;if(adv.due==='overdue'&&!isOver(t))return false;
+    if(adv.due==='today'&&d!==0)return false;if(adv.due==='week'&&(d==null||d<0||d>7))return false}
+  return true}
+function qOk(t){if(!q)return true;const s=q.toLowerCase();return[t.title,t.desc,projOf(t.projectId)?.name,t.claimedBy,t.createdBy].some(x=>x&&String(x).toLowerCase().includes(s))}
+const advN=()=>Object.values(adv).filter(Boolean).length;
+const scoped=()=>tasks.filter(inScope);
 const PR={urgent:0,normal:1,low:2};
+/* Ordering: unfinished first, then urgent, overdue/soonest due, newest. */
 function sorted(list){return[...list].sort((a,b)=>(status(a)==='done')-(status(b)==='done')||PR[a.priority]-PR[b.priority]||(a.due||'9999').localeCompare(b.due||'9999')||b.createdAt-a.createdAt)}
-const FILTERS={all:['ทั้งหมด',()=>true],open:['ยังไม่มีคนรับ',t=>status(t)==='open'],mine:['งานของฉัน',t=>t.claimedBy===me&&status(t)!=='done'],done:['เสร็จแล้ว',t=>status(t)==='done'],urgent:['เร่งด่วน',t=>t.priority==='urgent'&&status(t)!=='done']};
 
+/* ---------- Pieces ---------- */
 function tagsHTML(t){const s=status(t),d=dueInfo(t);
   return `<div class="tags"><span class="tag t-${t.priority}">${PRI[t.priority]}</span><span class="tag s-${s}">${ST[s]}</span>${d?`<span class="tag ${d.cls}">${esc(d.txt)}</span>`:''}</div>`}
 function progHTML(t){const n=items(t).length;if(!n)return'';return `<div class="prog"><div class="bar"><i style="width:${doneN(t)/n*100}%"></i></div><span>${doneN(t)}/${n} ข้อ</span></div>`}
@@ -216,21 +347,38 @@ function galHTML(t,urls,offset,max){if(!urls.length)return'';const show=urls.sli
 const thumbs=t=>galHTML(t,allPics(t),0,3);
 function draftPicsHTML(k){return draftPics[k].map((f,i)=>`<span class="ph"><img src="${f.url}" alt="รูปที่เลือก"><button type="button" class="x" data-rp="${k}:${i}" aria-label="ลบรูปนี้">×</button></span>`).join('')}
 function checklistHTML(list,editable){return list.map((it,i)=>`<label class="chk ${it.done?'done':''}"><input type="checkbox" data-i="${i}" ${it.done?'checked':''}><span>${esc(it.text)}</span>${editable?`<button type="button" class="x" data-rm="${i}" aria-label="ลบหัวข้อนี้">×</button>`:''}</label>`).join('')}
+const memberOpts=(sel,skip)=>members.filter(m=>m.user_id!==skip).map(m=>`<option value="${esc(m.user_id)}" ${m.user_id===sel?'selected':''}>${esc(m.name)}${m.user_id===uid?' (ฉัน)':''}</option>`).join('');
 
-function cardHTML(t){const s=status(t);
+function cardHTML(t){const s=status(t),p=projSel==='all'?projOf(t.projectId):null;
   return `<article class="card p-${t.priority} ${s==='done'?'done':''}">${tagsHTML(t)}
-   <div class="title">${esc(t.title)}</div>
-   <div class="meta"><span>โดย <b>${esc(t.createdBy)}</b> · ${ago(t.createdAt)}</span><span>${t.claimedBy?`ผู้รับ <b>${esc(t.claimedBy)}</b>`:'<span class="nobody">ยังไม่มีคนรับ</span>'}</span></div>
+   ${p?ptagHTML(p):''}<div class="title">${esc(t.title)}</div>
+   <div class="meta"><span>โดย <b>${esc(t.createdBy)}</b> · ${ago(t.createdAt)}</span><span>${t.assigneeId?`ผู้รับ <b>${esc(t.claimedBy)}</b>`:'<span class="nobody">ยังไม่มีคนรับ</span>'}</span></div>
    ${progHTML(t)}${thumbs(t)}
    <div class="act"><button class="btn sm" data-open="${esc(t.id)}">ดูรายละเอียด</button>${s==='open'?`<button class="btn sm y" data-claim="${esc(t.id)}">รับงาน</button>`:''}</div></article>`}
 
-function headerHTML(){return `<header class="hdr"><span class="mark" aria-hidden="true">H</span><span class="logo">HANDOFF</span><span class="sp"></span>${me?`<span class="who">${esc(me)}</span><button class="btn ghost sm" id="out">ออกจากระบบ</button>`:''}</header>`}
+function headerHTML(){return `<header class="hdr"><span class="mark" aria-hidden="true">H</span><span class="logo">HANDOFF</span><span class="sp"></span>${myName?`<span class="who">${esc(curWs?meName():myName)}</span>`:''}</header>`}
 
-function formHTML(){return `<form class="sheet" id="af" novalidate><h2>เพิ่มงาน</h2>
-  <label class="f">ชื่องาน *<input id="tt" placeholder="เช่น ต่องาน Stock / Order SFS" required autocomplete="off"></label>
+function projLabel(){if(projSel==='all')return'ทุกโปรเจกต์';if(projSel==='none')return'ไม่มีโปรเจกต์';return projOf(projSel)?.name||''}
+function ctxHTML(){const w=ws(),act=activeProjects(),arc=archivedProjects();
+  return `<div class="ctx"><button class="wsbtn" id="wsb" aria-haspopup="dialog"><span class="t"><span class="k">Workspace</span><b>${esc(w.name)}</b></span><span class="car">สลับ ▾</span></button>
+   <label class="projsel"><span class="k">โปรเจกต์</span><select id="ps" ${wsLoaded?'':'disabled'}>
+    <option value="all" ${projSel==='all'?'selected':''}>ทุกโปรเจกต์</option><option value="none" ${projSel==='none'?'selected':''}>ไม่มีโปรเจกต์ (งานทั่วไป)</option>
+    ${act.map(p=>`<option value="${esc(p.id)}" ${projSel===p.id?'selected':''}>${esc(p.icon)} ${esc(p.name)}</option>`).join('')}
+    ${arc.length?`<optgroup label="เก็บถาวร">${arc.map(p=>`<option value="${esc(p.id)}" ${projSel===p.id?'selected':''}>${esc(p.icon)} ${esc(p.name)}</option>`).join('')}</optgroup>`:''}
+    <option value="__manage">⚙ จัดการโปรเจกต์…</option></select></label></div>`}
+
+/* ---------- Create task ---------- */
+const formProj=()=>projSel!=='all'&&projSel!=='none'&&projOf(projSel)&&!projOf(projSel).archived_at?projSel:'';
+function crumbHTML(pid){return `เพิ่มงานใน <b>${esc(ws().name)}</b> › <b>${esc(pid?projOf(pid)?.name:'ไม่มีโปรเจกต์')}</b>`}
+function formHTML(){const pid=formProj();
+  return `<form class="sheet" id="af" novalidate><h2>เพิ่มงาน</h2><div class="crumb" id="crumb">${crumbHTML(pid)}</div>
+  ${templates.length?`<label class="f">เริ่มจาก Template<select id="ttpl"><option value="">งานเปล่า</option>${templates.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')}</select></label>`:''}
+  <label class="f">ชื่องาน *<input id="tt" placeholder="เช่น ต่องาน Stock / Order SFS" required autocomplete="off" maxlength="200"></label>
   <div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:13.5px;font-weight:600;color:var(--muted)">ความสำคัญ
    <div class="seg" role="group" aria-label="ความสำคัญ">${['urgent','normal','low'].map(p=>`<button type="button" class="${p}" data-pri="${p}" aria-pressed="${fp===p}">${PRI[p]}</button>`).join('')}</div></div>
   <label class="f">กำหนดส่ง (ไม่บังคับ)<input type="date" id="tdue"></label>
+  <label class="f">โปรเจกต์<select id="tproj"><option value="">ไม่มีโปรเจกต์</option>${activeProjects().map(p=>`<option value="${esc(p.id)}" ${p.id===pid?'selected':''}>${esc(p.icon)} ${esc(p.name)}</option>`).join('')}</select></label>
+  <label class="f">มอบหมายให้ (ไม่บังคับ)<select id="tas"><option value="">ยังไม่มอบหมาย (ให้คนในทีมกดรับเอง)</option>${memberOpts(null)}</select></label>
   <details class="more-f"><summary>รายละเอียดเพิ่มเติม (ไม่บังคับ)</summary><div class="in">
    <div><div style="font-size:13.5px;font-weight:600;color:var(--muted);margin-bottom:4px">สิ่งที่ต้องทำ (ติ๊กข้อที่ทำแล้ว)</div><div id="dl">${checklistHTML(draft,true)}</div>
     <div class="row" style="margin-top:8px"><input id="ni" placeholder="เพิ่มข้อ เช่น เช็ค RTV ครบ 100"><button type="button" class="btn" id="nadd">เพิ่ม</button></div></div>
@@ -238,108 +386,298 @@ function formHTML(){return `<form class="sheet" id="af" novalidate><h2>เพิ
    <label class="f">รายละเอียด<textarea id="td" placeholder="รายละเอียดงาน"></textarea></label>
    <div><label class="btn sm" style="width:max-content">📷 แนบรูปรายละเอียด<input type="file" accept="image/*" multiple hidden data-pick="n"></label><div class="pics" id="pn" style="margin-top:8px">${draftPicsHTML('n')}</div></div>
    <label class="f">หมายเหตุส่งต่องาน<textarea id="th" placeholder="บริบท ทำอะไรไปแล้ว ต้องทำอะไรต่อ ของอยู่ตรงไหน"></textarea></label>
-   <label class="f">มอบหมายให้ (ถ้าต้องการ)<input id="tas" placeholder="ชื่อผู้รับงาน" autocomplete="off"></label>
   </div></details>
   <div id="ferr" ${formErr?'':'hidden'} class="err" role="alert">${esc(formErr)}</div>
   <div class="act"><button type="button" class="btn" id="cancel">ยกเลิก</button><button class="btn y" id="save">บันทึกงาน</button></div></form>`}
 
-function render(){const app=$('#app');
-  if(!me){app.innerHTML=`${headerHTML()}<div class="center"><h1>เข้าสู่ระบบ</h1><div class="muted" style="color:var(--muted)">ใส่ชื่อของคุณเพื่อเริ่มใช้งาน</div>
-    <form id="lf" style="display:flex;flex-direction:column;gap:10px"><label class="f">ชื่อ<input id="name" placeholder="ชื่อของคุณ" autocomplete="name" required></label><button class="btn y big">เข้าสู่ระบบ</button></form></div>`;
-    $('#lf').onsubmit=e=>{e.preventDefault();const v=$('#name').value.trim();if(!v)return;me=v;try{localStorage.setItem('jd-name',v)}catch(e){}render()};$('#name').focus();return}
-  if(conn!=='ok'){app.innerHTML=headerHTML()+(conn==='connecting'?`<div class="empty">กำลังโหลดงาน…</div>`:`<div class="sheet" style="border-color:var(--urgent)"><b>เชื่อมต่อฐานข้อมูลงานไม่ได้</b>
-    <div style="font-size:14px;color:var(--muted)">ตรวจสอบสัญญาณอินเทอร์เน็ต แล้วกดลองใหม่</div><div><button class="btn" id="retry">ลองใหม่</button></div></div>`);
-    bindOut();if($('#retry'))$('#retry').onclick=()=>location.reload();return}
-  const live=tasks.filter(t=>status(t)!=='done');
-  const cnt=k=>tasks.filter(FILTERS[k][1]).length;
-  const shown=sorted(tasks.filter(FILTERS[filter][1]));
-  app.innerHTML=`${headerHTML()}
-  ${adding?formHTML():`<button class="btn y big" id="add">+ เพิ่มงาน</button>`}
-  <div class="sum">
-   <button class="tile ${filter==='all'?'on':''}" data-f="all"><b>${live.length}</b><span>งานที่เปิดอยู่</span></button>
-   <button class="tile ${filter==='open'?'on':''}" data-f="open"><b>${cnt('open')}</b><span>ยังไม่มีคนรับ</span></button>
-   <button class="tile u ${filter==='urgent'?'on':''}" data-f="urgent"><b>${cnt('urgent')}</b><span>เร่งด่วน</span></button></div>
-  <div class="chips" role="group" aria-label="กรองงาน">${['all','open','mine','done','urgent'].map(k=>`<button class="chip" data-f="${k}" aria-pressed="${filter===k}">${FILTERS[k][0]}<i>${k==='all'?tasks.length:cnt(k)}</i></button>`).join('')}</div>
-  ${shown.length?`<div class="list">${shown.map(cardHTML).join('')}</div>`:`<div class="empty">${tasks.length?'ไม่มีงานในหมวดนี้':'ยังไม่มีงาน<br>กด “+ เพิ่มงาน” เพื่อเริ่ม'}</div>`}
-  <div class="note">● บันทึกในฐานข้อมูลกลาง ทุกคนที่มีลิงก์เห็นงานชุดเดียวกัน</div>
-  <div id="detail">${detailHTML()}</div>`;
-  bind()}
+/* ---------- Screens ---------- */
+function newWsFormHTML(){return `<form class="stack" id="nwf"><label class="f">ชื่อ Workspace *<input id="nwn" maxlength="60" placeholder="เช่น ร้านสาขาสยาม, ทีมคลังสินค้า" required autocomplete="off"></label>
+  <label class="f">คำอธิบาย (ไม่บังคับ)<input id="nwd" maxlength="500" autocomplete="off"></label><button class="btn y" id="nws">สร้าง Workspace</button>
+  <div class="note">คุณจะเป็น Owner และได้รหัสเชิญไว้ส่งให้ทีม</div></form>`}
+function joinFormHTML(){return `<form class="stack" id="jf"><label class="f">รหัสเชิญ<input id="jc" value="${esc(joinCode)}" placeholder="เช่น 4F9A2C71B0" autocomplete="off" autocapitalize="characters" required></label>
+  <button class="btn ${joinCode?'y':''}" id="jsv">เข้าร่วม Workspace</button><div class="note">ขอรหัสหรือลิงก์เชิญจาก Owner หรือ Admin ของทีม</div></form>`}
+function bindWsForms(){
+  if($('#nwf'))$('#nwf').onsubmit=e=>{e.preventDefault();const n=$('#nwn').value.trim();if(!n){$('#nwn').focus();return}$('#nws').disabled=true;$('#nws').textContent='กำลังสร้าง…';
+    run(async()=>{const{data,error}=await col.rpc('create_workspace',{p_name:n,p_description:$('#nwd').value.trim(),p_member_name:myName});if(error)throw error;
+      await loadWorkspaces();sheet=null;renderSheet();await selectWs(data)},'สร้าง Workspace ไม่สำเร็จ','สร้าง Workspace แล้ว')};
+  if($('#jf'))$('#jf').onsubmit=e=>{e.preventDefault();const c=$('#jc').value.trim();if(!c){$('#jc').focus();return}$('#jsv').disabled=true;$('#jsv').textContent='กำลังเข้าร่วม…';
+    run(async()=>{const{data,error}=await col.rpc('join_workspace',{p_code:c,p_member_name:myName});if(error)throw error;
+      joinCode='';history.replaceState(null,'',location.pathname);await loadWorkspaces();sheet=null;renderSheet();await selectWs(data)},'เข้าร่วมไม่สำเร็จ','เข้าร่วม Workspace แล้ว')}}
 
-function detailHTML(){const t=tasks.find(x=>x.id===openId);if(!t)return'';const s=status(t),list=items(t),n=list.length,d=dueInfo(t);
-  const mine=t.claimedBy===me,canEdit=mine||t.createdBy===me,ev=events[t.id];
+function render(){const app=$('#app');
+  if(!myName){app.innerHTML=`${headerHTML()}<div class="center"><h1>เข้าสู่ระบบ</h1><div style="color:var(--muted)">ใส่ชื่อของคุณ ทีมจะเห็นชื่อนี้ในงานที่คุณสร้างและรับ</div>
+    <form id="lf" style="display:flex;flex-direction:column;gap:10px"><label class="f">ชื่อ<input id="name" placeholder="ชื่อของคุณ" autocomplete="name" maxlength="40" required></label><button class="btn y big">เริ่มใช้งาน</button></form></div>`;
+    $('#lf').onsubmit=e=>{e.preventDefault();const v=$('#name').value.trim();if(!v)return;myName=v;LS.set('jd-name',v);start()};$('#name').focus();return}
+  if(conn==='connecting'){app.innerHTML=headerHTML()+`<div class="empty">กำลังโหลด…</div>`;return}
+  if(conn==='auth'){app.innerHTML=headerHTML()+`<div class="sheet" style="border-color:var(--urgent)"><b>เข้าสู่ระบบไม่ได้</b>
+    <div style="font-size:14px;color:var(--muted)">ระบบยืนยันตัวตนของแอปยังไม่เปิดใช้งาน แจ้งผู้ดูแลระบบ (${esc(authMsg)})</div><div><button class="btn" id="retry">ลองใหม่</button></div></div>`;
+    $('#retry').onclick=()=>start();return}
+  if(conn!=='ok'){app.innerHTML=headerHTML()+`<div class="sheet" style="border-color:var(--urgent)"><b>เชื่อมต่อฐานข้อมูลไม่ได้</b>
+    <div style="font-size:14px;color:var(--muted)">ตรวจสอบสัญญาณอินเทอร์เน็ต แล้วกดลองใหม่</div><div><button class="btn" id="retry">ลองใหม่</button></div></div>`;
+    $('#retry').onclick=()=>start();return}
+  if(!curWs){app.innerHTML=`${headerHTML()}<h1 style="font-size:32px">เริ่มต้นใช้งาน</h1>
+    <div style="color:var(--muted)">Workspace คือพื้นที่ทำงานของแต่ละทีม งานและสมาชิกของแต่ละ Workspace แยกจากกัน</div>
+    ${joinCode?`<div class="sheet"><h2>เข้าร่วม Workspace</h2>${joinFormHTML()}</div><div class="sheet"><h2>หรือสร้าง Workspace ใหม่</h2>${newWsFormHTML()}</div>`
+      :`<div class="sheet"><h2>สร้าง Workspace ใหม่</h2>${newWsFormHTML()}</div><div class="sheet"><h2>มีรหัสเชิญจากทีม?</h2>${joinFormHTML()}</div>`}
+    <div class="note">เข้าใช้ในชื่อ <b>${esc(myName)}</b> · <button class="btn ghost sm" id="rename">เปลี่ยนชื่อ</button></div>`;
+    bindWsForms();$('#rename').onclick=()=>{const v=prompt('ชื่อของคุณ',myName);if(v&&v.trim()){myName=v.trim().slice(0,40);LS.set('jd-name',myName);render()}};return}
+  if(!wsLoaded){app.innerHTML=headerHTML()+ctxHTML()+`<div class="empty">กำลังโหลดงานใน Workspace นี้…</div>`;bindCtx();return}
+  const sp=projSel!=='all'&&projSel!=='none'?projOf(projSel):null,arch=!!sp?.archived_at;
+  app.innerHTML=`${headerHTML()}${ctxHTML()}
+  ${!projects.length?`<div class="banner"><span>Workspace นี้ยังไม่มีโปรเจกต์</span>${isAdmin()?`<button class="btn sm" data-sh="projedit:new">+ สร้างโปรเจกต์</button>`:'<span>(Owner หรือ Admin สร้างได้)</span>'}</div>`:''}
+  ${arch?`<div class="banner"><span>📦 <b>${esc(sp.name)}</b> ถูกเก็บถาวร ดูงานเดิมได้ แต่เพิ่มงานใหม่ไม่ได้</span>${isAdmin()?`<button class="btn sm" data-unarch="${esc(sp.id)}">นำกลับมาใช้</button>`:''}</div>`:''}
+  ${adding?formHTML():arch?'':`<button class="btn y big" id="add">+ เพิ่มงาน</button>`}
+  <div class="sum" id="tiles"></div>
+  <div class="srch"><input id="q" type="search" placeholder="ค้นหา ชื่องาน รายละเอียด โปรเจกต์ คน" value="${esc(q)}" autocomplete="off" aria-label="ค้นหางาน"><button class="btn" id="fbtn" data-sh="filters">${fbtnHTML()}</button></div>
+  <div class="chips" role="group" aria-label="กรองงาน" id="chips"></div>
+  <div id="lst"></div>
+  <div class="note">● ข้อมูลอยู่ในฐานข้อมูลกลาง เห็นเฉพาะสมาชิกของ Workspace นี้</div>
+  <div id="detail">${detailHTML()}</div>`;
+  paint();bind()}
+
+/* Repaint only the counts and list, so the search box keeps focus while typing. */
+function paint(){if(!$('#lst'))return;const sc=scoped(),cnt=k=>sc.filter(FILTERS[k][1]).length;
+  const live=sc.filter(t=>status(t)!=='done').length;
+  $('#tiles').innerHTML=[['all','',live,'งานที่เปิดอยู่'],['open','',cnt('open'),'ยังไม่มีคนรับ'],['urgent','u',cnt('urgent'),'เร่งด่วน'],['overdue','o',cnt('overdue'),'เกินกำหนด']]
+    .map(([k,c,n,l])=>`<button class="tile ${c} ${filter===k?'on':''}" data-f="${k}"><b>${n}</b><span>${l}</span></button>`).join('');
+  $('#chips').innerHTML=Object.keys(FILTERS).map(k=>`<button class="chip" data-f="${k}" aria-pressed="${filter===k}">${FILTERS[k][0]}<i>${k==='all'?sc.length:cnt(k)}</i></button>`).join('');
+  const shown=sorted(sc.filter(FILTERS[filter][1]).filter(advOk).filter(qOk)),narrowed=q||advN()||filter!=='all';
+  let empty;
+  if(!sc.length)empty=projSel==='all'?(tasks.length?'งานทั้งหมดอยู่ในโปรเจกต์ที่เก็บถาวร':'ยังไม่มีงานใน Workspace นี้<br>กด “+ เพิ่มงาน” เพื่อเริ่ม'):projSel==='none'?'ยังไม่มีงานที่ไม่อยู่ในโปรเจกต์':'โปรเจกต์นี้ยังไม่มีงาน';
+  else if(!shown.length)empty=q?`ไม่พบงานที่ตรงกับ “${esc(q)}”`:'ไม่มีงานในหมวดนี้';
+  $('#lst').innerHTML=shown.length?`<div class="list">${shown.map(cardHTML).join('')}</div>`
+    :`<div class="empty">${empty}${sc.length&&narrowed?`<div style="margin-top:10px"><button class="btn sm" id="clearf">ล้างการค้นหาและตัวกรอง</button></div>`:''}</div>`;
+  $$('#tiles [data-f],#chips [data-f]').forEach(b=>b.onclick=()=>{filter=b.dataset.f;paint()});
+  if($('#clearf'))$('#clearf').onclick=()=>{q='';adv={...NOF};filter='all';$('#q').value='';refilter()};
+  $$('#lst [data-claim]').forEach(b=>b.onclick=()=>{b.disabled=true;b.textContent='กำลังรับงาน…';run(()=>claim(b.dataset.claim),'รับงานไม่สำเร็จ','รับงานแล้ว')});
+  $$('#lst [data-open]').forEach(b=>b.onclick=()=>{openId=b.dataset.open;delId=null;refreshDetail();loadEvents(openId);$('#close')?.focus()})}
+
+/* ---------- Task detail ---------- */
+function evExtra(m){const ex=[['เหตุผล',m?.reason],['ทำไปแล้ว',m?.done],['ต้องทำต่อ',m?.next]].filter(x=>x[1]);
+  return ex.length?`<div class="hx">${ex.map(([k,v])=>`<div><small>${k}</small><div class="txt">${esc(v)}</div></div>`).join('')}</div>`:''}
+function detailHTML(){const t=tasks.find(x=>x.id===openId);if(!t)return'';const s=status(t),list=items(t),n=list.length,d=dueInfo(t),p=projOf(t.projectId);
+  const adm=isAdmin(),mine=t.assigneeId===uid,canEdit=adm||mine||t.createdById===uid,canDel=adm||t.createdById===uid,ev=events[t.id];
+  const lastHo=ev&&[...ev].reverse().find(e=>e.action==='ส่งต่องาน');
   const todo=list.map((x,i)=>[x,i]).filter(([x])=>!x.done),did=list.map((x,i)=>[x,i]).filter(([x])=>x.done);
-  const ck=arr=>arr.map(([it,i])=>`<label class="chk ${it.done?'done':''}"><input type="checkbox" data-i="${i}" ${it.done?'checked':''}><span>${esc(it.text)}</span></label>`).join('');
+  const ck=a=>a.map(([it,i])=>`<label class="chk ${it.done?'done':''}"><input type="checkbox" data-i="${i}" ${it.done?'checked':''} ${canEdit?'':'disabled'}><span>${esc(it.text)}</span></label>`).join('');
   return `<div class="modal-bg" id="mbg"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mt">
    <div class="mhead"><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">${tagsHTML(t)}<b id="mt" style="font-size:18px;overflow-wrap:anywhere">${esc(t.title)}</b></div><button class="btn ghost sm" id="close">ปิด</button></div>
    <div class="mbody">
-    <dl class="kv"><dt>ผู้สร้าง</dt><dd>${esc(t.createdBy)} · ${when(t.createdAt)}</dd>
-     <dt>ผู้รับ</dt><dd>${t.claimedBy?esc(t.claimedBy):'<span class="nobody">ยังไม่มีคนรับ</span>'}</dd>
+    <dl class="kv"><dt>อยู่ใน</dt><dd>${esc(ws().name)} › ${p?ptagHTML(p):'ไม่มีโปรเจกต์'}</dd>
+     <dt>ผู้สร้าง</dt><dd>${esc(t.createdBy)} · ${when(t.createdAt)}</dd>
+     <dt>ผู้รับ</dt><dd>${t.assigneeId?esc(t.claimedBy):'<span class="nobody">ยังไม่มีคนรับ</span>'}</dd>
      <dt>ความสำคัญ</dt><dd>${PRI[t.priority]}</dd><dt>กำหนดส่ง</dt><dd>${d?esc(d.txt.replace('กำหนดส่ง ','')):'ไม่ได้กำหนด'}</dd></dl>
     ${s==='open'?`<button class="btn y big" data-claim="${esc(t.id)}">รับงานนี้</button>`:''}
-    ${s!=='open'?`<div class="sec"><h3>สถานะ</h3>${mine?`<div class="steps" role="group" aria-label="เปลี่ยนสถานะ">${['claimed','doing','done'].map(k=>`<button data-st="${k}" aria-pressed="${s===k}">${ST[k]}</button>`).join('')}</div>`
-      :`<div>${ST[s]}</div><div class="note">เฉพาะผู้รับงาน (${esc(t.claimedBy)}) เปลี่ยนสถานะได้</div>`}</div>`:''}
+    ${lastHo&&t.assigneeId&&lastHo.metadata?.to===t.claimedBy&&evExtra(lastHo.metadata)?`<div class="lastho"><div><b>ส่งต่อจาก ${esc(lastHo.metadata.from||'ไม่มี')}</b> <small style="color:var(--muted)">· ${when(Date.parse(lastHo.created_at))}</small></div>${evExtra(lastHo.metadata)}</div>`:''}
+    ${s!=='open'?`<div class="sec"><h3>สถานะ</h3>${mine||adm?`<div class="steps" role="group" aria-label="เปลี่ยนสถานะ">${['claimed','doing','done'].map(k=>`<button data-st="${k}" aria-pressed="${s===k}">${ST[k]}</button>`).join('')}</div>`
+      :`<div>${ST[s]}</div><div class="note">เฉพาะผู้รับงาน (${esc(t.claimedBy)}) หรือ Admin เปลี่ยนสถานะได้</div>`}</div>`:''}
     ${t.handoff||canEdit?`<div class="sec"><h3>หมายเหตุส่งต่องาน</h3>${t.handoff?`<div class="txt">${esc(t.handoff)}</div>`:'<div class="note">ยังไม่มีหมายเหตุ</div>'}
       ${canEdit?`<details class="more-f" style="margin-top:8px"><summary>แก้ไขหมายเหตุ</summary><div class="in"><textarea id="eh">${esc(t.handoff)}</textarea><button class="btn" id="saveh">บันทึกหมายเหตุ</button></div></details>`:''}</div>`:''}
     <div class="sec"><h3>สิ่งที่ยังต้องทำ${n?` · ทำแล้ว ${doneN(t)}/${n}`:''}</h3>${n?progHTML(t):''}<div class="cl">${todo.length?ck(todo):`<div class="note">${n?'ครบทุกข้อแล้ว':'ยังไม่มีรายการ'}</div>`}</div>
-     <div class="row" style="margin-top:8px"><input id="mi" placeholder="เพิ่มสิ่งที่ต้องทำ"><button class="btn" id="madd">เพิ่ม</button></div></div>
+     ${canEdit?`<div class="row" style="margin-top:8px"><input id="mi" placeholder="เพิ่มสิ่งที่ต้องทำ"><button class="btn" id="madd">เพิ่ม</button></div>`:`<div class="note" style="margin-top:6px">ผู้สร้าง ผู้รับงาน หรือ Admin แก้รายการได้</div>`}</div>
     ${did.length?`<div class="sec"><h3>สิ่งที่ทำไปแล้ว</h3><div class="cl">${ck(did)}</div></div>`:''}
     ${t.desc||t.notePhotos.length||t.photos.length?`<div class="sec"><h3>รายละเอียดและรูปแนบ</h3>${galHTML(t,t.photos,0,99)}${t.desc?`<div class="txt" style="margin-top:8px">${esc(t.desc)}</div>`:''}${t.notePhotos.length?`<div style="margin-top:8px">${galHTML(t,t.notePhotos,t.photos.length,99)}</div>`:''}</div>`:''}
-    ${canEdit?`<div class="sec"><h3>จัดการงาน</h3><div style="display:flex;flex-direction:column;gap:10px">
+    ${canEdit?`<div class="sec"><h3>ส่งต่องาน</h3><div class="stack">
+      <label class="f">ส่งให้<select id="hto"><option value="">เลือกผู้รับคนใหม่</option>${memberOpts(null,t.assigneeId)}${t.assigneeId?'<option value="__none">ไม่มีคนรับ (ปล่อยงานคืนให้ทีม)</option>':''}</select></label>
+      <label class="f">เหตุผล<input id="hrs" placeholder="เช่น หมดกะ, ติดงานด่วน" maxlength="500"></label>
+      <label class="f">สิ่งที่ทำไปแล้ว<textarea id="hdn" placeholder="ทำถึงไหนแล้ว"></textarea></label>
+      <label class="f">สิ่งที่ต้องทำต่อ<textarea id="hnx" placeholder="ผู้รับคนใหม่ต้องทำอะไรต่อ ของอยู่ตรงไหน"></textarea></label>
+      <button class="btn y" id="hgo">ส่งต่องาน</button></div></div>
+     <div class="sec"><h3>จัดการงาน</h3><div class="stack">
       <label class="f">เปลี่ยนกำหนดส่ง<div class="row"><input type="date" id="edue" value="${esc(t.due||'')}"><button class="btn" id="savedue">บันทึก</button></div></label>
-      <label class="f">ส่งต่อให้คนอื่น<div class="row"><input id="eas" placeholder="ชื่อผู้รับคนใหม่" autocomplete="off"><button class="btn" id="saveas">ส่งต่อ</button></div></label></div></div>`:''}
-    <div class="sec"><h3>ประวัติการอัปเดต</h3>${ev?(ev.length?`<ul class="hist">${ev.map(e=>`<li><div><b>${esc(e.actor)}</b> ${esc(e.action)}${e.detail?` <span style="color:var(--muted)">${esc(e.detail)}</span>`:''}<br><small>${when(Date.parse(e.created_at))}</small></div></li>`).join('')}</ul>`:'<div class="note">ยังไม่มีประวัติ (งานที่สร้างก่อนเริ่มบันทึกประวัติจะไม่มีรายการย้อนหลัง)</div>'):'<div class="note">กำลังโหลด…</div>'}</div>
-    ${delId===t.id?`<div class="sheet" style="border-color:var(--urgent)"><b>ลบงาน “${esc(t.title)}”?</b><div class="note">ลบแล้วกู้คืนไม่ได้ รูปแนบจะถูกลบด้วย</div><div class="act"><button class="btn" id="dno">ไม่ลบ</button><button class="btn danger" id="dyes">ลบงาน</button></div></div>`
-     :`<button class="btn danger" id="del">ลบงาน</button>`}
+      <label class="f">ย้ายโปรเจกต์<div class="row"><select id="eproj"><option value="">ไม่มีโปรเจกต์</option>${activeProjects().map(x=>`<option value="${esc(x.id)}" ${x.id===t.projectId?'selected':''}>${esc(x.icon)} ${esc(x.name)}</option>`).join('')}${p?.archived_at?`<option value="${esc(p.id)}" selected disabled>${esc(p.name)} (เก็บถาวร)</option>`:''}</select><button class="btn" id="saveproj">ย้าย</button></div></label></div></div>`:''}
+    <div class="sec"><h3>ประวัติการอัปเดต</h3>${ev?(ev.length?`<ul class="hist">${ev.map(e=>`<li><div><b>${esc(e.actor)}</b> ${esc(e.action)}${e.detail?` <span style="color:var(--muted)">${esc(e.detail)}</span>`:''}${evExtra(e.metadata)}<small style="display:block">${when(Date.parse(e.created_at))}</small></div></li>`).join('')}</ul>`:'<div class="note">ยังไม่มีประวัติ</div>'):'<div class="note">กำลังโหลด…</div>'}</div>
+    ${canDel?(delId===t.id?`<div class="sheet" style="border-color:var(--urgent)"><b>ลบงาน “${esc(t.title)}”?</b><div class="note">ลบแล้วกู้คืนไม่ได้ รูปแนบและประวัติจะถูกลบด้วย</div><div class="act"><button class="btn" id="dno">ไม่ลบ</button><button class="btn danger" id="dyes">ลบงาน</button></div></div>`
+     :`<button class="btn danger" id="del">ลบงาน</button>`):''}
    </div></div></div>`}
-function refreshDetail(){const box=$('#detail');if(!box)return;const sc=$('.modal')?.scrollTop||0;box.innerHTML=detailHTML();if($('.modal'))$('.modal').scrollTop=sc;bindDetail()}
+function refreshDetail(){const box=$('#detail');if(!box)return;const sc=$('#mbg .modal')?.scrollTop||0;box.innerHTML=detailHTML();if($('#mbg .modal'))$('#mbg .modal').scrollTop=sc;bindDetail()}
 
-function bindOut(){if($('#out'))$('#out').onclick=()=>{me=null;try{localStorage.removeItem('jd-name')}catch(e){}render()}}
-function formDirty(){return adding&&!!($('#tt')?.value.trim()||$('#td')?.value.trim()||$('#th')?.value.trim()||$('#tas')?.value.trim()||$('#tdue')?.value||draft.length||draftPics.t.length||draftPics.n.length)}
+/* ---------- Sheets (workspace, projects, filters, templates) ---------- */
+function sheetBody(){const w=ws();if(!w&&!['newws','join'].includes(sheet))return null;const[kind,arg]=sheet.split(':');
+  if(kind==='ws')return['Workspace ของฉัน',`<div class="stack">${wss.map(x=>`<button class="wsitem ${x.id===curWs?'on':''}" data-ws="${esc(x.id)}"><b>${esc(x.name)}</b><small>${ROLE[x.role]}${x.id===curWs?' · กำลังใช้งาน':''}</small></button>`).join('')}</div>
+    <div class="act"><button class="btn" data-sh="newws">+ สร้าง Workspace</button><button class="btn" data-sh="join">เข้าร่วมด้วยรหัส</button></div>
+    <button class="btn" data-sh="wsset">⚙ ตั้งค่า Workspace “${esc(w.name)}”</button>`];
+  if(kind==='newws')return['สร้าง Workspace',newWsFormHTML()];
+  if(kind==='join')return['เข้าร่วม Workspace',joinFormHTML()];
+  if(kind==='wsset'){const own=isOwner(),me=members.find(m=>m.user_id===uid);
+    return['ตั้งค่า Workspace',`
+    <div class="sec"><h3>ข้อมูล Workspace</h3>${own?`<div class="stack"><label class="f">ชื่อ<input id="wsn" value="${esc(w.name)}" maxlength="60"></label><label class="f">คำอธิบาย<textarea id="wsd" maxlength="500">${esc(w.description)}</textarea></label><button class="btn" id="wssv">บันทึก</button></div>`
+      :`<b>${esc(w.name)}</b>${w.description?`<div class="txt note">${esc(w.description)}</div>`:''}<div class="note">เฉพาะ Owner แก้ไขได้</div>`}</div>
+    <div class="sec"><h3>ชื่อของฉันใน Workspace นี้</h3><div class="row"><input id="myn" value="${esc(me?.name||'')}" maxlength="40"><button class="btn" id="mynsv">บันทึก</button></div></div>
+    ${isAdmin()?`<div class="sec"><h3>เชิญสมาชิก</h3>${invite?`<div class="code">${esc(invite)}</div><div class="note">ใครมีรหัสหรือลิงก์นี้ เข้าร่วมได้ทันทีในบทบาท Member</div>
+      <div class="act" style="margin-top:8px"><button class="btn y" id="share">แชร์ลิงก์เชิญ</button><button class="btn" id="regen">สร้างรหัสใหม่</button></div>`:'<div class="note">โหลดรหัสเชิญไม่ได้</div>'}</div>`:''}
+    <div class="sec"><h3>สมาชิก (${members.length})</h3>${members.map(m=>`<div class="mrow"><div class="nm">${esc(m.name)}${m.user_id===uid?' <small>(ฉัน)</small>':''}<br><small>${ROLE_TXT[m.role]}</small></div>
+      ${own?`<select data-role="${esc(m.user_id)}" aria-label="บทบาทของ ${esc(m.name)}">${Object.keys(ROLE).map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${ROLE[r]}</option>`).join('')}</select>${m.user_id!==uid?`<button class="btn sm danger" data-kick="${esc(m.user_id)}">นำออก</button>`:''}`:`<small>${ROLE[m.role]}</small>`}</div>`).join('')}</div>
+    <div class="sec"><h3>Template งาน (${templates.length})</h3>${templates.length?templates.map(x=>`<div class="mrow"><div class="nm">${esc(x.name)}<br><small>${arr(x.items).length} ข้อ${x.priority?' · '+PRI[x.priority]:''}${x.due_days!=null?' · ส่งใน '+x.due_days+' วัน':''}</small></div>${isAdmin()?`<button class="btn sm" data-sh="tpl:${esc(x.id)}">แก้ไข</button>`:''}</div>`).join(''):'<div class="note">ยังไม่มี Template</div>'}
+      ${isAdmin()?'<button class="btn" data-sh="tpl:new" style="margin-top:8px">+ เพิ่ม Template</button>':'<div class="note">Owner หรือ Admin จัดการ Template ได้</div>'}</div>
+    <button class="btn danger" id="leave">ออกจาก Workspace นี้</button>`]}
+  if(kind==='proj'){const row=x=>{const ts=tasks.filter(t=>t.projectId===x.id),o=ts.filter(t=>status(t)!=='done').length,dn=ts.length-o,ov=ts.filter(isOver).length;
+      return `<div class="prow" style="--c:${pcolor(x)}"><div class="nm">${esc(x.icon)} ${esc(x.name)}</div>${x.description?`<div class="note txt">${esc(x.description)}</div>`:''}
+       <div class="meta"><span>เปิดอยู่ <b>${o}</b></span><span>เสร็จแล้ว <b>${dn}</b></span><span>เกินกำหนด <b style="${ov?'color:var(--urgent)':''}">${ov}</b></span></div>
+       <div class="act"><button class="btn sm" data-view="${esc(x.id)}">ดูงาน</button>${isAdmin()?`<button class="btn sm" data-sh="projedit:${esc(x.id)}">แก้ไข</button>`:''}</div></div>`};
+    const act=activeProjects(),arc=archivedProjects();
+    return['โปรเจกต์ใน '+w.name,`${isAdmin()?'<button class="btn y" data-sh="projedit:new">+ สร้างโปรเจกต์</button>':'<div class="note">เฉพาะ Owner หรือ Admin สร้างและแก้ไขโปรเจกต์ได้</div>'}
+      <div class="stack">${act.length?act.map(row).join(''):'<div class="empty">Workspace นี้ยังไม่มีโปรเจกต์</div>'}</div>
+      ${arc.length?`<div class="sec"><h3>เก็บถาวร</h3><div class="stack">${arc.map(row).join('')}</div></div>`:''}`]}
+  if(kind==='projedit'){const x=arg==='new'?{name:'',description:'',color:'yellow',icon:'📁'}:projOf(arg);if(!x)return null;
+    return[arg==='new'?'สร้างโปรเจกต์':'แก้ไขโปรเจกต์',`<form class="stack" id="pf"><div class="crumb">ใน <b>${esc(w.name)}</b></div>
+      <label class="f">ชื่อโปรเจกต์ *<input id="pn" value="${esc(x.name)}" maxlength="60" required autocomplete="off"></label>
+      <label class="f">คำอธิบาย<textarea id="pd" maxlength="500">${esc(x.description)}</textarea></label>
+      <div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:13.5px;font-weight:600;color:var(--muted)">สี<div class="opts" id="pcol">${Object.entries(COLORS).map(([k,v])=>`<button type="button" data-c="${k}" aria-pressed="${x.color===k}" aria-label="${k}"><span class="sw" style="--c:${v}"></span></button>`).join('')}</div></div>
+      <div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:13.5px;font-weight:600;color:var(--muted)">ไอคอน<div class="opts" id="pico">${ICONS.map(i=>`<button type="button" data-i="${i}" aria-pressed="${x.icon===i}">${i}</button>`).join('')}</div></div>
+      ${arg==='new'&&templates.length?`<label class="f">สร้างงานแรกจาก Template (ไม่บังคับ)<select id="ptpl"><option value="">ไม่สร้าง</option>${templates.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select></label>`:''}
+      <div id="perr" class="err" hidden role="alert"></div>
+      <button class="btn y" id="psv">${arg==='new'?'สร้างโปรเจกต์':'บันทึก'}</button>
+      ${arg!=='new'?(x.archived_at?`<button type="button" class="btn" data-unarch="${esc(x.id)}">นำกลับมาใช้</button>`:`<button type="button" class="btn danger" id="parc">เก็บถาวร</button><div class="note">เก็บถาวรแล้วงานและประวัติยังอยู่ครบ แต่เพิ่มงานใหม่ไม่ได้</div>`):''}</form>`]}
+  if(kind==='tpl'){const x=arg==='new'?{name:'',description:'',items:[],priority:null,due_days:null}:templates.find(t=>t.id===arg);if(!x)return null;
+    return[arg==='new'?'เพิ่ม Template':'แก้ไข Template',`<form class="stack" id="tf">
+      <label class="f">ชื่อ Template *<input id="xn" value="${esc(x.name)}" maxlength="60" required autocomplete="off"></label>
+      <label class="f">คำอธิบาย<textarea id="xd" maxlength="1000">${esc(x.description)}</textarea></label>
+      <label class="f">รายการที่ต้องทำ (บรรทัดละ 1 ข้อ)<textarea id="xi" rows="6">${esc(arr(x.items).map(i=>i?.text||'').filter(Boolean).join('\n'))}</textarea></label>
+      <label class="f">ความสำคัญเริ่มต้น<select id="xp"><option value="">ไม่กำหนด</option>${Object.keys(PRI).map(p=>`<option value="${p}" ${x.priority===p?'selected':''}>${PRI[p]}</option>`).join('')}</select></label>
+      <label class="f">กำหนดส่งภายใน (วัน หลังวันที่สร้างงาน)<input id="xdd" type="number" min="0" max="365" inputmode="numeric" value="${x.due_days??''}" placeholder="ไม่กำหนด"></label>
+      <button class="btn y" id="xsv">บันทึก Template</button>${arg!=='new'?'<button type="button" class="btn danger" id="xdel">ลบ Template</button>':''}</form>`]}
+  if(kind==='filters'){const sel=(id,label,opts,v)=>`<label class="f">${label}<select id="${id}">${opts.map(([k,l])=>`<option value="${esc(k)}" ${v===k?'selected':''}>${esc(l)}</option>`).join('')}</select></label>`;
+    return['ตัวกรองขั้นสูง',`<div class="crumb">ใน <b>${esc(w.name)}</b></div>
+      ${sel('fp','โปรเจกต์',[['all','ทุกโปรเจกต์'],['none','ไม่มีโปรเจกต์'],...projects.map(p=>[p.id,p.name+(p.archived_at?' (เก็บถาวร)':'')])],projSel)}
+      ${sel('fs','สถานะ',[['','ทุกสถานะ'],...Object.entries(ST)],adv.status)}
+      ${sel('fr','ความสำคัญ',[['','ทุกระดับ'],...Object.entries(PRI)],adv.priority)}
+      ${sel('fa','ผู้รับงาน',[['','ทุกคน'],['none','ยังไม่มีคนรับ'],...members.map(m=>[m.user_id,m.name])],adv.assignee)}
+      ${sel('fd','กำหนดส่ง',[['','ทั้งหมด'],['overdue','เกินกำหนด'],['today','วันนี้'],['week','ภายใน 7 วัน'],['none','ไม่ได้กำหนด']],adv.due)}
+      <div class="act"><button class="btn" id="fclr">ล้างตัวกรอง</button><button class="btn y" id="fok">ดูผลลัพธ์</button></div>`]}
+  return null}
+
+function renderSheet(){const box=$('#sheet');if(!box)return;const b=sheet&&sheetBody();
+  if(!b){sheet=null;box.innerHTML='';return}
+  const sc=$('#sheet .modal')?.scrollTop||0;
+  box.innerHTML=`<div class="modal-bg" id="shbg"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="sht"><div class="mhead"><b id="sht" style="flex:1;min-width:0;font-size:18px;overflow-wrap:anywhere">${esc(b[0])}</b><button class="btn ghost sm" id="shx">ปิด</button></div><div class="mbody">${b[1]}</div></div></div>`;
+  $('#sheet .modal').scrollTop=sc;bindSheet()}
+function openSheet(s){if(s==='projedit:new'&&!isAdmin())return;sheet=s;$('#sheet').innerHTML='';renderSheet();$('#shx')?.focus()}
+function closeSheet(){sheet=null;renderSheet()}
+
+function bindSheet(){const[kind,arg]=sheet.split(':');
+  $('#shx').onclick=closeSheet;$('#shbg').onclick=e=>{if(e.target.id==='shbg')closeSheet()};
+  $$('#sheet [data-sh]').forEach(b=>b.onclick=()=>openSheet(b.dataset.sh));
+  $$('#sheet [data-ws]').forEach(b=>b.onclick=()=>{const id=b.dataset.ws;if(id===curWs){closeSheet();return}
+    if(formDirty()&&!confirm('ทิ้งงานที่กำลังกรอกแล้วสลับ Workspace?'))return;closeSheet();selectWs(id).catch(()=>{conn='off';render()})});
+  $$('#sheet [data-view]').forEach(b=>b.onclick=()=>{setProj(b.dataset.view);closeSheet()});
+  $$('#sheet [data-unarch]').forEach(b=>b.onclick=()=>unarchive(b.dataset.unarch));
+  bindWsForms();
+  if(kind==='wsset'){
+    if($('#wssv'))$('#wssv').onclick=()=>{const n=$('#wsn').value.trim();if(!n)return;$('#wssv').disabled=true;
+      run(async()=>{ok(await col.from('workspaces').update({name:n,description:$('#wsd').value.trim()}).eq('id',curWs));await loadWorkspaces();await loadWs()},'บันทึกไม่สำเร็จ','บันทึกแล้ว')};
+    $('#mynsv').onclick=()=>{const n=$('#myn').value.trim();if(!n)return;$('#mynsv').disabled=true;
+      run(async()=>{ok(await col.from('workspace_members').update({name:n}).eq('workspace_id',curWs).eq('user_id',uid));myName=n;LS.set('jd-name',n);await loadWs()},'บันทึกไม่สำเร็จ','บันทึกชื่อแล้ว (งานเดิมยังแสดงชื่อตอนที่บันทึก)')};
+    if($('#share'))$('#share').onclick=async()=>{const url=location.origin+location.pathname+'?join='+encodeURIComponent(invite),txt=`เข้าร่วม Workspace “${ws().name}” บน HANDOFF\nรหัสเชิญ: ${invite}\n${url}`;
+      try{if(navigator.share){await navigator.share({title:'HANDOFF',text:txt});return}await navigator.clipboard.writeText(txt);toast('คัดลอกลิงก์เชิญแล้ว')}catch(e){if(e?.name!=='AbortError')prompt('คัดลอกลิงก์นี้',url)}};
+    if($('#regen'))$('#regen').onclick=()=>{if(!confirm('สร้างรหัสใหม่? รหัสและลิงก์เดิมจะใช้ไม่ได้อีก (สมาชิกเดิมยังอยู่)'))return;
+      run(async()=>{const{data,error}=await col.rpc('regenerate_invite',{p_ws:curWs});if(error)throw error;invite=data;renderSheet()},'สร้างรหัสใหม่ไม่สำเร็จ','สร้างรหัสใหม่แล้ว')};
+    $$('#sheet [data-role]').forEach(s=>s.onchange=()=>{const u=s.dataset.role,r=s.value;
+      run(async()=>{ok(await col.from('workspace_members').update({role:r}).eq('workspace_id',curWs).eq('user_id',u));await loadWorkspaces();await loadWs()},'เปลี่ยนบทบาทไม่สำเร็จ','เปลี่ยนบทบาทแล้ว')});
+    $$('#sheet [data-kick]').forEach(b=>b.onclick=()=>{const m=members.find(x=>x.user_id===b.dataset.kick);if(!m||!confirm(`นำ ${m.name} ออกจาก Workspace? งานที่เคยรับไว้จะยังแสดงชื่อเดิม`))return;
+      run(async()=>{const{data,error}=await col.from('workspace_members').delete().eq('workspace_id',curWs).eq('user_id',m.user_id).select('user_id');if(error)throw error;if(!data.length)throw new Error('ไม่มีสิทธิ์');await loadWs()},'นำสมาชิกออกไม่สำเร็จ','นำสมาชิกออกแล้ว')});
+    $('#leave').onclick=()=>{if(!confirm(`ออกจาก “${ws().name}”? จะเห็นงานของ Workspace นี้อีกครั้งเมื่อเข้าร่วมด้วยรหัสเชิญเท่านั้น`))return;
+      run(async()=>{const{data,error}=await col.from('workspace_members').delete().eq('workspace_id',curWs).eq('user_id',uid).select('user_id');if(error)throw error;if(!data.length)throw new Error('ไม่มีสิทธิ์');
+        if(chan){col.removeChannel(chan);chan=null}sheet=null;renderSheet();LS.set('ho-ws',null);curWs=null;await loadWorkspaces();if(wss.length)await selectWs(wss[0].id);else render()},'ออกจาก Workspace ไม่สำเร็จ','ออกจาก Workspace แล้ว')}}
+  if(kind==='projedit'){let c=arg==='new'?'yellow':projOf(arg).color,ic=arg==='new'?'📁':projOf(arg).icon;
+    $$('#pcol [data-c]').forEach(b=>b.onclick=()=>{c=b.dataset.c;$$('#pcol [data-c]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.c===c))});
+    $$('#pico [data-i]').forEach(b=>b.onclick=()=>{ic=b.dataset.i;$$('#pico [data-i]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.i===ic))});
+    $('#pf').onsubmit=async e=>{e.preventDefault();const n=$('#pn').value.trim(),perr=$('#perr');if(!n){perr.hidden=false;perr.textContent='กรุณาใส่ชื่อโปรเจกต์';$('#pn').focus();return}
+      const btn=$('#psv');btn.disabled=true;perr.hidden=true;const row={name:n,description:$('#pd').value.trim(),color:c,icon:ic},wsId=curWs;
+      try{if(arg==='new'){const{data,error}=await col.from('projects').insert({...row,workspace_id:wsId}).select('id').single();if(error)throw error;
+          const tp=templates.find(t=>t.id===$('#ptpl')?.value);
+          if(tp){const{error:e2}=await col.from('tasks').insert({...taskFromTpl(tp),workspace_id:wsId,project_id:data.id});if(e2)toast('สร้างโปรเจกต์แล้ว แต่สร้างงานจาก Template ไม่สำเร็จ: '+errText(e2),true)}
+          await loadWs();setProj(data.id);toast('สร้างโปรเจกต์แล้ว')}
+        else{ok(await col.from('projects').update(row).eq('id',arg));await loadWs();toast('บันทึกโปรเจกต์แล้ว')}
+        sheet='proj';renderSheet()}
+      catch(err){btn.disabled=false;perr.hidden=false;perr.textContent='บันทึกไม่สำเร็จ: '+errText(err)}};
+    if($('#parc'))$('#parc').onclick=()=>{if(!confirm('เก็บถาวรโปรเจกต์นี้? งานและประวัติยังอยู่ครบ แต่เพิ่มงานใหม่ไม่ได้'))return;
+      run(async()=>{ok(await col.from('projects').update({archived_at:new Date().toISOString()}).eq('id',arg));await loadWs();sheet='proj';renderSheet()},'เก็บถาวรไม่สำเร็จ','เก็บถาวรแล้ว')}}
+  if(kind==='tpl'){$('#tf').onsubmit=e=>{e.preventDefault();const n=$('#xn').value.trim();if(!n){$('#xn').focus();return}
+      const dd=$('#xdd').value===''?null:Math.max(0,Math.min(365,Math.round(+$('#xdd').value)||0));
+      const row={name:n,description:$('#xd').value.trim(),items:$('#xi').value.split('\n').map(s=>s.trim()).filter(Boolean).map(text=>({text,done:false})),priority:$('#xp').value||null,due_days:dd};
+      $('#xsv').disabled=true;
+      run(async()=>{ok(arg==='new'?await col.from('templates').insert({...row,workspace_id:curWs}):await col.from('templates').update(row).eq('id',arg));await loadWs();sheet='wsset';renderSheet()},'บันทึก Template ไม่สำเร็จ','บันทึก Template แล้ว')};
+    if($('#xdel'))$('#xdel').onclick=()=>{if(!confirm('ลบ Template นี้? งานที่สร้างไปแล้วไม่เปลี่ยน'))return;
+      run(async()=>{ok(await col.from('templates').delete().eq('id',arg));await loadWs();sheet='wsset';renderSheet()},'ลบไม่สำเร็จ','ลบ Template แล้ว')}}
+  if(kind==='filters'){const upd=()=>{adv={status:$('#fs').value,priority:$('#fr').value,assignee:$('#fa').value,due:$('#fd').value};
+      const v=$('#fp').value;if(v===projSel)refilter();else if(!setProj(v))$('#fp').value=projSel};
+    ['#fp','#fs','#fr','#fa','#fd'].forEach(s=>$(s).onchange=upd);
+    $('#fclr').onclick=()=>{adv={...NOF};closeSheet();refilter()};$('#fok').onclick=closeSheet}}
+
+/* Switching project closes an empty add-task form; a filled one is only discarded after asking. */
+function setProj(v){if(adding){if(formDirty()&&!confirm('ทิ้งงานที่กำลังกรอก?'))return false;adding=false;draft=[];clearPics()}
+  projSel=v;LS.set('ho-proj:'+curWs,v);render();return true}
+const fbtnHTML=()=>'ตัวกรอง'+(advN()?` <span class="cnt">${advN()}</span>`:'');
+function refilter(){paint();if($('#fbtn'))$('#fbtn').innerHTML=fbtnHTML()}
+function unarchive(id){run(async()=>{ok(await col.from('projects').update({archived_at:null}).eq('id',id));await loadWs()},'นำกลับมาใช้ไม่สำเร็จ','นำโปรเจกต์กลับมาใช้แล้ว')}
+const tplItems=tp=>arr(tp.items).filter(x=>x&&x.text).map(x=>({text:String(x.text),done:false}));
+const taskFromTpl=tp=>({title:tp.name,desc:tp.description||'',items:tplItems(tp),priority:tp.priority||'normal',due_date:tp.due_days!=null?addDays(tp.due_days):null});
+
+/* ---------- Binding ---------- */
+function formDirty(){return adding&&!!($('#tt')?.value.trim()||$('#td')?.value.trim()||$('#th')?.value.trim()||$('#tas')?.value||$('#tdue')?.value||draft.length||draftPics.t.length||draftPics.n.length)}
 function closeForm(){adding=false;draft=[];fp='normal';formErr='';clearPics();render()}
-function bind(){bindOut();
-  $$('[data-f]').forEach(b=>b.onclick=()=>{filter=b.dataset.f;render()});
-  if(adding){const ni=$('#ni');
+function bindCtx(){$('#wsb').onclick=()=>openSheet('ws');
+  const ps=$('#ps');ps.onchange=()=>{if(ps.value==='__manage'){ps.value=projSel;openSheet('proj');return}
+    if(!setProj(ps.value))ps.value=projSel}}
+function bind(){bindCtx();
+  $$('#app [data-sh]').forEach(b=>b.onclick=()=>openSheet(b.dataset.sh));
+  $$('#app [data-unarch]').forEach(b=>b.onclick=()=>unarchive(b.dataset.unarch));
+  const qi=$('#q');qi.oninput=()=>{q=qi.value.trim();paint()};
+  if(adding){const ni=$('#ni'),wsId=curWs;
     const push=()=>{const v=ni.value.trim();if(!v)return;draft.push({text:v,done:false});$('#dl').innerHTML=checklistHTML(draft,true);ni.value='';ni.focus()};
     $('#nadd').onclick=push;ni.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();push()}};
     $('#dl').onclick=e=>{const rm=e.target.closest('[data-rm]');if(rm){e.preventDefault();draft.splice(+rm.dataset.rm,1);$('#dl').innerHTML=checklistHTML(draft,true)}};
     $('#dl').onchange=e=>{const i=e.target.dataset.i;if(i==null)return;draft[i].done=e.target.checked;$('#dl').innerHTML=checklistHTML(draft,true)};
-    $$('[data-pri]').forEach(b=>b.onclick=()=>{fp=b.dataset.pri;$$('[data-pri]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.pri===fp))});
+    const setPri=p=>{fp=p;$$('[data-pri]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.pri===fp))};
+    $$('[data-pri]').forEach(b=>b.onclick=()=>setPri(b.dataset.pri));
+    $('#tproj').onchange=()=>{$('#crumb').innerHTML=crumbHTML($('#tproj').value)};
+    /* A template only pre-fills the form; everything stays editable and "งานเปล่า" is always available. */
+    if($('#ttpl'))$('#ttpl').onchange=e=>{const tp=templates.find(x=>x.id===e.target.value);if(!tp)return;const tt=$('#tt');
+      if(!tt.value.trim()||tt.value===tt.dataset.auto)tt.value=tp.name;tt.dataset.auto=tp.name;
+      if(!$('#td').value.trim()||$('#td').value===$('#td').dataset.auto){$('#td').value=tp.description||'';$('#td').dataset.auto=tp.description||''}
+      draft=tplItems(tp);$('#dl').innerHTML=checklistHTML(draft,true);if(tp.priority)setPri(tp.priority);
+      $('#tdue').value=tp.due_days!=null?addDays(tp.due_days):'';if(draft.length||tp.description)$('details.more-f').open=true};
     const showPics=k=>{$('#p'+k).innerHTML=draftPicsHTML(k)};
     $$('[data-pick]').forEach(inp=>inp.onchange=()=>{const k=inp.dataset.pick;for(const f of inp.files)draftPics[k].push({file:f,url:URL.createObjectURL(f)});inp.value='';showPics(k)});
     $('#af').addEventListener('click',e=>{const b=e.target.closest('[data-rp]');if(!b)return;const[k,i]=b.dataset.rp.split(':');URL.revokeObjectURL(draftPics[k][i].url);draftPics[k].splice(+i,1);showPics(k)});
     $('#cancel').onclick=()=>{if(formDirty()&&!confirm('ทิ้งข้อมูลที่กรอกไว้?'))return;closeForm()};
-    $('#af').onsubmit=async e=>{e.preventDefault();if(saving)return;const title=$('#tt').value.trim(),ferr=$('#ferr');
-      if(!title){ferr.hidden=false;ferr.textContent='กรุณาใส่ชื่องาน';$('#tt').focus();return}
+    $('#af').onsubmit=async e=>{e.preventDefault();if(saving)return;const title=$('#tt').value.trim(),ferr=$('#ferr'),fail=m=>{ferr.hidden=false;ferr.textContent=m};
+      if(!title){fail('กรุณาใส่ชื่องาน');$('#tt').focus();return}
+      const pid=$('#tproj').value||null,as=$('#tas').value||null;
+      /* Never save into a different workspace than the one on screen. */
+      if(wsId!==curWs){fail('Workspace ถูกสลับแล้ว กรุณาเปิดฟอร์มใหม่');return}
+      if(pid&&!activeProjects().some(p=>p.id===pid)){fail('โปรเจกต์ที่เลือกไม่อยู่ใน Workspace นี้ หรือถูกเก็บถาวรแล้ว');return}
+      if(as&&!members.some(m=>m.user_id===as)){fail('ผู้รับงานไม่ได้เป็นสมาชิกของ Workspace นี้');return}
       const pending=ni.value.trim();if(pending){draft.push({text:pending,done:false});ni.value=''}
-      const as=$('#tas').value.trim();
-      const t={title,items:draft,desc:$('#td').value.trim(),handoff:$('#th').value.trim(),priority:fp,due:$('#tdue').value||null,createdBy:me,createdAt:Date.now(),
-        claimedBy:as||null,claimedAt:as?Date.now():null,status:as?'claimed':null};
+      const row={workspace_id:wsId,project_id:pid,title,items:draft,desc:$('#td').value.trim(),handoff_note:$('#th').value.trim(),priority:fp,due_date:$('#tdue').value||null,assignee_id:as};
       const save=$('#save');saving=true;save.disabled=true;ferr.hidden=true;
       try{if(draftPics.t.length||draftPics.n.length){save.textContent='กำลังอัปโหลดรูป…';
-          const a=await upload(draftPics.t.map(x=>x.file)),b=await upload(draftPics.n.map(x=>x.file));if(a.length)t.photos=a;if(b.length)t.notePhotos=b}
+          const a=await upload(draftPics.t.map(x=>x.file),wsId),b=await upload(draftPics.n.map(x=>x.file),wsId);if(a.length)row.photos=a;if(b.length)row.note_photos=b}
         save.textContent='กำลังบันทึก…';
-        if(!col)throw new Error('ยังเชื่อมต่อฐานข้อมูลไม่ได้');
-        await addTask(t);saving=false;closeForm();toast('บันทึกงานแล้ว')}
-      catch(err){saving=false;save.disabled=false;save.textContent='บันทึกงาน';ferr.hidden=false;ferr.textContent='บันทึกไม่สำเร็จ: '+(err.message||err)+' ลองกดบันทึกอีกครั้ง'}};
+        await addTask(row);saving=false;closeForm();toast('บันทึกงานแล้ว')}
+      catch(err){saving=false;save.disabled=false;save.textContent='บันทึกงาน';fail('บันทึกไม่สำเร็จ: '+errText(err)+' ลองกดบันทึกอีกครั้ง')}};
     if(!$('#tt').value)$('#tt').focus()}
-  else $('#add').onclick=()=>{adding=true;draft=[];fp='normal';formErr='';clearPics();render()};
-  $$('.list [data-claim]').forEach(b=>b.onclick=()=>{b.disabled=true;b.textContent='กำลังรับงาน…';run(()=>claim(b.dataset.claim),'รับงานไม่สำเร็จ','รับงานแล้ว')});
-  $$('[data-open]').forEach(b=>b.onclick=()=>{openId=b.dataset.open;delId=null;refreshDetail();loadEvents(openId);$('#close')?.focus()});
+  else if($('#add'))$('#add').onclick=()=>{adding=true;draft=[];fp='normal';formErr='';clearPics();render()};
   bindDetail()}
 function bindDetail(){const t=tasks.find(x=>x.id===openId);if(!t)return;
   const close=()=>{openId=null;delId=null;refreshDetail()};
   $('#close').onclick=close;$('#mbg').onclick=e=>{if(e.target.id==='mbg')close()};
   $$('#mbg [data-claim]').forEach(b=>b.onclick=()=>{b.disabled=true;b.textContent='กำลังรับงาน…';run(()=>claim(t.id),'รับงานไม่สำเร็จ','รับงานแล้ว')});
   $$('[data-st]').forEach(b=>b.onclick=()=>{const k=b.dataset.st;if(k===status(t))return;$$('[data-st]').forEach(x=>x.disabled=true);
-    run(()=>patch(t.id,{status:k},['เปลี่ยนสถานะ',ST[status(t)]+' → '+ST[k]]),'เปลี่ยนสถานะไม่สำเร็จ','บันทึกสถานะแล้ว')});
+    run(()=>patch(t.id,{status:k}),'เปลี่ยนสถานะไม่สำเร็จ','บันทึกสถานะแล้ว')});
   $$('#mbg .cl').forEach(cl=>cl.onchange=e=>{const i=+e.target.dataset.i;const list=items(t).map((x,j)=>j===i?{...x,done:e.target.checked}:x);run(()=>patch(t.id,{items:list}),'บันทึกไม่สำเร็จ')});
-  const mi=$('#mi');const madd=()=>{const v=mi.value.trim();if(!v)return;$('#madd').disabled=true;run(()=>patch(t.id,{items:[...items(t),{text:v,done:false}]}),'เพิ่มรายการไม่สำเร็จ')};
-  $('#madd').onclick=madd;mi.onkeydown=e=>{if(e.key==='Enter')madd()};
-  if($('#saveh'))$('#saveh').onclick=()=>{const v=$('#eh').value.trim();if(v===t.handoff)return;$('#saveh').disabled=true;run(()=>patch(t.id,{handoff:v},['แก้ไขหมายเหตุส่งต่องาน']),'บันทึกหมายเหตุไม่สำเร็จ','บันทึกหมายเหตุแล้ว')};
-  if($('#savedue'))$('#savedue').onclick=()=>{const v=$('#edue').value||null;if(v===t.due)return;$('#savedue').disabled=true;
-    run(()=>patch(t.id,{due:v},['แก้ไขกำหนดส่ง',(t.due||'ไม่มี')+' → '+(v||'ไม่มี')]),'บันทึกกำหนดส่งไม่สำเร็จ','บันทึกกำหนดส่งแล้ว')};
-  if($('#saveas'))$('#saveas').onclick=()=>{const v=$('#eas').value.trim();if(!v||v===t.claimedBy)return;$('#saveas').disabled=true;
-    run(()=>patch(t.id,{claimedBy:v,claimedAt:Date.now(),status:'claimed'},['เปลี่ยนผู้รับ',(t.claimedBy||'ไม่มี')+' → '+v]),'ส่งต่องานไม่สำเร็จ','ส่งต่องานแล้ว')};
+  const mi=$('#mi');if(mi){const madd=()=>{const v=mi.value.trim();if(!v)return;$('#madd').disabled=true;run(()=>patch(t.id,{items:[...items(t),{text:v,done:false}]}),'เพิ่มรายการไม่สำเร็จ')};
+    $('#madd').onclick=madd;mi.onkeydown=e=>{if(e.key==='Enter')madd()}}
+  if($('#saveh'))$('#saveh').onclick=()=>{const v=$('#eh').value.trim();if(v===t.handoff)return;$('#saveh').disabled=true;run(()=>patch(t.id,{handoff_note:v}),'บันทึกหมายเหตุไม่สำเร็จ','บันทึกหมายเหตุแล้ว')};
+  if($('#savedue'))$('#savedue').onclick=()=>{const v=$('#edue').value||null;if(v===t.due)return;$('#savedue').disabled=true;run(()=>patch(t.id,{due_date:v}),'บันทึกกำหนดส่งไม่สำเร็จ','บันทึกกำหนดส่งแล้ว')};
+  if($('#saveproj'))$('#saveproj').onclick=()=>{const v=$('#eproj').value||null;if(v===t.projectId)return;
+    if(v&&!activeProjects().some(p=>p.id===v)){toast('โปรเจกต์นี้ไม่อยู่ใน Workspace นี้ หรือถูกเก็บถาวรแล้ว',true);return}
+    $('#saveproj').disabled=true;run(()=>patch(t.id,{project_id:v}),'ย้ายโปรเจกต์ไม่สำเร็จ','ย้ายโปรเจกต์แล้ว')};
+  if($('#hgo'))$('#hgo').onclick=()=>{const v=$('#hto').value;if(!v){toast('เลือกผู้รับคนใหม่ก่อน',true);$('#hto').focus();return}
+    const to=v==='__none'?null:v;if(to&&!members.some(m=>m.user_id===to)){toast('ผู้รับงานไม่ได้เป็นสมาชิกของ Workspace นี้',true);return}
+    $('#hgo').disabled=true;$('#hgo').textContent='กำลังส่งต่อ…';
+    run(()=>handoff(t.id,to,$('#hrs').value.trim(),$('#hdn').value.trim(),$('#hnx').value.trim()),'ส่งต่องานไม่สำเร็จ',to?'ส่งต่องานแล้ว':'ปล่อยงานคืนแล้ว')};
   if($('#del'))$('#del').onclick=()=>{delId=t.id;refreshDetail()};
   if($('#dno'))$('#dno').onclick=()=>{delId=null;refreshDetail()};
   if($('#dyes'))$('#dyes').onclick=()=>{const id=t.id;openId=null;delId=null;refreshDetail();run(()=>remove(id),'ลบไม่สำเร็จ','ลบงานแล้ว')};
@@ -364,25 +702,26 @@ function stepLB(d){const j=lb.i+d;if(j<0||j>=lb.urls.length)return;lb.i=j;showLB
 function closeLB(){lb=null;$('#lb')?.remove();document.body.style.overflow=''}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-lb]');if(!b)return;const[id,i]=b.dataset.lb.split(':');const t=tasks.find(x=>x.id===id);if(t)openLB(allPics(t),+i)});
 document.addEventListener('keydown',e=>{if(!lb)return;if(e.key==='Escape'){e.stopImmediatePropagation();closeLB()}else if(e.key==='ArrowLeft')stepLB(-1);else if(e.key==='ArrowRight')stepLB(1)},true);
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&openId){openId=null;delId=null;refreshDetail()}});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(sheet){closeSheet();return}if(openId){openId=null;delId=null;refreshDetail()}});
 window.addEventListener('beforeunload',e=>{if(formDirty()){e.preventDefault();e.returnValue=''}});
-render();
 
-/* Don't redraw while someone is typing, so their input is never wiped by a sync. */
-function typing(){const a=document.activeElement;return a&&/^(INPUT|TEXTAREA)$/.test(a.tagName)&&a.value&&a.closest('#mbg')}
-async function load(){const{data,error}=await col.from('tasks').select('*').order('created_at',{ascending:false});
-  if(error){if(conn!=='ok'){conn='off';render()}return}
-  tasks=data.map(fromRow);if(openId&&!tasks.some(x=>x.id===openId))openId=null;
-  const first=conn!=='ok';conn='ok';
-  if(first||!adding&&!typing())render();
-  if(openId)loadEvents(openId)}
-(()=>{if(!window.supabase){conn='off';render();return}
-  col=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-  load();
-  col.channel('tasks').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},()=>load())
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'task_events'},p=>{if(p.new&&p.new.task_id===openId)loadEvents(openId)}).subscribe();
-  setInterval(()=>{if(!document.hidden)load()},15000);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
-})();
+/* ---------- Start ---------- */
+async function start(){if(!window.supabase){conn='off';render();return}
+  conn='connecting';render();
+  try{if(!col)col=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+    const{data:{session}}=await col.auth.getSession();uid=session?.user?.id||null;
+    if(!uid){const{data,error}=await col.auth.signInAnonymously();if(error){conn='auth';authMsg=errText(error);render();return}uid=data.user.id}
+    await loadWorkspaces();conn='ok';
+    const saved=LS.get('ho-ws');
+    if(!wss.length){curWs=null;render();return}
+    const pick=wss.some(w=>w.id===saved)?saved:wss[0].id;
+    if(saved&&pick!==saved)toast('ไม่มีสิทธิ์เข้าถึง Workspace ที่เปิดล่าสุดแล้ว',true);
+    await selectWs(pick);
+    if(joinCode)openSheet('join')}
+  catch(e){conn='off';render()}}
+render();
+if(myName)start();
+setInterval(()=>{if(!document.hidden)refresh()},15000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
 </script>
 </body></html>
